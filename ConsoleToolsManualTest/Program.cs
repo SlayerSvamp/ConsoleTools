@@ -113,9 +113,8 @@ namespace ConsoleToolsManualTest
             IFlagSelector<Flags> flags;
             IFlagSelector<Simmärken> sim;
             var decimalSeparator = Convert.ToChar(CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator);
-            Type type = typeof(IInputTool);
-            var menuArray = new IInputTool[]
-            {
+
+            var menu = new InputToolSelector<IInputTool>("Main menu", "Main menu", new IInputTool[]{
                 new RegexInput("Name", "What is your name?",$"Must be alphanumeric, comma ',' or space ' '", @"^[a-zA-Z0-9 ,]+$"),
                 new IntegerInput("Age", "How old are you?", $"Must be in range {minAge}-{maxAge}", (val) => val >= minAge && val <= maxAge),
                 new Selector<string>("Gender", "What's your gender?", new string[] { "♂ - Male", "♀ - Female", "o - Other" }),
@@ -129,20 +128,27 @@ namespace ConsoleToolsManualTest
                 flags = FlagSelector.New<Flags>("Flags", $"Choose int -> get flags (0-{flagsMaxValue})"),
                 flagsDisplayStyle = new EnumSelector<FlagsDisplayStyle>("Flags display style", "Display flags as:"),
                 new EnumSelector<Confirm>("Exit", "Do you really wat to exit?")
-            };
-
-            var menu = new Selector<IInputTool>("Main menu", "Main menu", menuArray);
-
+            });
+            foreach (var tool in new IEnumerable<IInputTool>[] { menu.Choices, new IInputTool[] { menu } }.SelectMany(x => x))
+            {
+                if (typeof(ISelector).IsAssignableFrom(tool.GetType()))
+                {
+                    (tool as ISelector).SelectedForegroundColor = ConsoleColor.Green;
+                }
+            }
+            sim.AfterToggle = () => sim.Footer = sim.Selected.ToString();
+            sim.SelectedBackgroundColor = ConsoleColor.DarkRed;
+            sim.SelectedForegroundColor = ConsoleColor.Black;
             var flagsDefaultDisplayFormat = flags.DisplayFormat;
-
             do
             {
-                menu.FooterColor = color.Selected;
+                menu.FooterBackgroundColor = Enum.TryParse<ConsoleColor>($"Dark{color.Selected.ToString()}", out var val ) ? val : ConsoleColor.Gray;
+                menu.FooterForegroundColor = color.Selected;
                 flags.DisplayFormat = flagsDisplayStyle.Selected == FlagsDisplayStyle.FlagNames ? flagsDefaultDisplayFormat : (x) => $"{(ulong)x}";
                 menu.Footer = GetInfoString(menu.Choices, flagsDisplayStyle);
                 menu.Select();
                 menu.Selected.Select();
-            } while (menu.Selected.Title != "Exit" || ((EnumSelector<Confirm>)menu.Selected).Selected != Confirm.Yes);
+            } while (menu.Selected.Title != "Exit" || (Confirm)menu.Selected.ObjSelected != Confirm.Yes);
         }
     }
 }

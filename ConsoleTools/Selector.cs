@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
-    public class Selector<T> : IInputTool
+    public class Selector<T> : ISelector
     {
         protected int index;
         IEnumerable<T> choices = null;
@@ -17,31 +17,8 @@ namespace ConsoleTools
         public virtual object ObjSelected { get { return Selected; } }
         public string OutputString { get { return DisplayFormat(Selected); } }
         public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
-        public List<T> Choices { get { return choices.Where(Filter).ToList(); } }
+        public List<T> Choices{get{ return choices.Where(Filter).ToList(); }}
         public Func<T, bool> Filter { get; set; } = (x) => true;
-        public Selector(string title, string inputMessage, IEnumerable<T> choices)
-        {
-            if (title.Length > 79) title = title.Substring(0, 79);
-            Title = title;
-            InputMessage = inputMessage;
-            if (choices == null)
-            {
-                throw new ArgumentException("Selector type constructor: argument 'choices' cannot be null");
-            }
-
-            SetDefaultDisplayFormat();
-
-            this.choices = choices.ToList();
-        }
-
-        protected void SetDefaultDisplayFormat()
-        {
-            if (typeof(IInputTool).IsAssignableFrom(typeof(T)))
-            {
-                DisplayFormat = (value) => (value as IInputTool).Title;
-            }
-        }
-
         public int Index
         {
             get { return index; }
@@ -52,8 +29,26 @@ namespace ConsoleTools
                 index %= Choices.Count;
             }
         }
-        public ConsoleColor FooterColor { get; set; }
+        public ConsoleColor FooterForegroundColor { get; set; } = ConsoleColor.Gray;
+        public ConsoleColor FooterBackgroundColor { get; set; } = ConsoleColor.Black;
+        public ConsoleColor SelectedForegroundColor { get; set; } = ConsoleColor.White;
+        public ConsoleColor SelectedBackgroundColor { get; set; } = ConsoleColor.Black;
         public string Footer { get; set; } = "";
+
+        public Selector(string title, string inputMessage, IEnumerable<T> choices)
+        {
+            if (choices == null)
+            {
+                throw new ArgumentException("Selector type constructor: argument 'choices' cannot be null");
+            }
+
+            if (title.Length > 79) title = title.Substring(0, 79);
+            Title = title;
+            InputMessage = inputMessage;
+
+            this.choices = choices.ToList();
+        }
+
         protected void SetCursor()
         {
             Console.CursorLeft = 1;
@@ -61,14 +56,42 @@ namespace ConsoleTools
             Console.Write(">");
             Console.CursorLeft = 1;
         }
+        protected virtual string FormatChoice(T choice)
+        {
+            return $"   {DisplayFormat(choice)}";
+        }
         protected virtual void PrintChoice(T choice, string formatted)
         {
             bool isActive = Choices[Index].Equals(choice);
-            if (isActive) Console.ForegroundColor = ConsoleColor.White;
+            ConsoleColor fgcolor = Console.ForegroundColor;
+            ConsoleColor bgcolor = Console.BackgroundColor;
+
+            if (isActive)
+            {
+                Console.ForegroundColor = SelectedForegroundColor;
+                Console.BackgroundColor = SelectedBackgroundColor;
+            }
             Console.WriteLine(formatted);
-            if (isActive) Console.ForegroundColor = ConsoleColor.Gray;
+            if (isActive)
+            {
+                Console.ForegroundColor = fgcolor;
+                Console.BackgroundColor = bgcolor;
+            }
         }
-        protected virtual void PrintChoices(bool includeFooter = true)
+        protected void PrintFooter()
+        {
+            if (Footer != "")
+            {
+                var fgcolor = Console.ForegroundColor;
+                var bgcolor = Console.BackgroundColor;
+                Console.ForegroundColor = FooterForegroundColor;
+                Console.BackgroundColor = FooterBackgroundColor;
+                Console.WriteLine(Footer);
+                Console.ForegroundColor = fgcolor;
+                Console.BackgroundColor = bgcolor;
+            }
+        }
+        protected void PrintChoices(bool includeFooter = true)
         {
             Console.Clear();
             Console.WriteLine();
@@ -76,15 +99,12 @@ namespace ConsoleTools
             Console.WriteLine();
             foreach (var choice in Choices)
             {
-                PrintChoice(choice, $"   {DisplayFormat(choice)}");
+                var text = FormatChoice(choice);
+                PrintChoice(choice, text);
             }
             Console.WriteLine();
-            if (includeFooter)
-            {
-                Console.ForegroundColor = FooterColor;
-                Console.WriteLine(Footer);
-                Console.ResetColor();
-            }
+
+            if (includeFooter) PrintFooter();
         }
         public virtual IInputTool Select()
         {
@@ -111,7 +131,14 @@ namespace ConsoleTools
             }
         }
     }
-    public class EnumSelector<T> : Selector<T>, IInputTool where T : struct, IComparable, IConvertible, IFormattable
+    public class InputToolSelector<T> : Selector<T> where T : IInputTool
+    {
+        public InputToolSelector(string title, string inputMessage, IEnumerable<T> choices) : base(title, inputMessage, choices)
+        {
+            DisplayFormat = (value) => value.Title;
+        }
+    }
+    public class EnumSelector<T> : Selector<T>, IEnumSelector<T> where T : struct, IComparable, IConvertible, IFormattable
     {
         public EnumSelector(string title, string inputMessage) : base(title, inputMessage, Enum.GetValues(typeof(T)).Cast<T>())
         {
@@ -120,6 +147,7 @@ namespace ConsoleTools
     }
     public abstract class FlagSelectorBase<T, U> : EnumSelector<T>, IFlagSelector<T> where T : struct, IComparable, IConvertible, IFormattable
     {
+        public Action AfterToggle { get; set; } = () => { };
         public U TotalFlagValue { get; protected set; }
         public override T Selected { get { return (T)(dynamic)TotalFlagValue; } }
         public FlagSelectorBase(string title, string inputMessage) : base(title, inputMessage)
@@ -130,23 +158,9 @@ namespace ConsoleTools
         {
             return (Selected as Enum).HasFlag(value as Enum);
         }
-        protected override void PrintChoices(bool includeFooter = true)
+        protected override string FormatChoice(T choice)
         {
-            Console.Clear();
-            Console.WriteLine();
-            Console.WriteLine($"   {InputMessage}");
-            Console.WriteLine();
-            foreach (var choice in Choices)
-            {
-                PrintChoice(choice, $"  {(IsSelected(choice) ? "»" : " ")} {DisplayFormat(choice)}");
-            }
-            Console.WriteLine();
-            if (includeFooter)
-            {
-                Console.ForegroundColor = FooterColor;
-                Console.WriteLine(Footer);
-                Console.ResetColor();
-            }
+            return $"  {(IsSelected(choice) ? "»" : " ")} {DisplayFormat(choice)}";
         }
         protected abstract void ToggleFlag();
 
@@ -170,6 +184,7 @@ namespace ConsoleTools
                         break;
                     case (int)ConsoleKey.Spacebar:
                         ToggleFlag();
+                        AfterToggle();
                         break;
                     default:
                         Console.Clear();
@@ -177,10 +192,6 @@ namespace ConsoleTools
                 }
             }
         }
-    }
-    public interface IFlagSelector<T> : IInputTool
-    {
-        Func<T, string> DisplayFormat { get; set; }
     }
     public static class FlagSelector
     {

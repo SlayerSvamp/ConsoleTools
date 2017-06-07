@@ -11,7 +11,7 @@ namespace ConsoleTools
     {
         String
     }
-    public abstract class InputBase<T> : IInputTool
+    public abstract class InputBase<T> : ITextInput<T>
     {
         public T Selected { get; set; }
         public object ObjSelected { get { return Selected; } }
@@ -82,33 +82,31 @@ namespace ConsoleTools
             return this;
         }
     }
-    public class CustomInput<T> : InputBase<T>, IInputTool
+    public class CustomInput<T> : InputBase<T>, ITextInput<T>
     {
         public CustomInput(string title, string inputMessage, string errorMessage, Func<T, bool> predicate, Func<string, T> converter) : base(title, inputMessage, errorMessage)
         {
-            Converter = converter;
             Predicate = predicate;
+            Converter = converter;
         }
     }
-    public class IntegerInput : InputBase<int>, IInputTool
+    public class IntegerInput : InputBase<int>, ITextInput<int>
     {
-        Func<int, bool> AcceptableValue { get; set; }
         public IntegerInput(string title, string inputMessage, string errorMessage, Func<int, bool> predicate) : base(title, inputMessage, errorMessage)
         {
             Predicate = predicate;
             Converter = (input) => Int32.Parse(input);
         }
     }
-    public class DoubleInput : InputBase<double>, IInputTool
+    public class DoubleInput : InputBase<double>, ITextInput<double>
     {
-        Func<double, bool> AcceptableValue { get; set; }
         public DoubleInput(string title, string inputMessage, string errorMessage, Func<double, bool> predicate) : base(title, inputMessage, errorMessage)
         {
             Predicate = predicate;
             Converter = (input) => Double.Parse(input);
         }
     }
-    public class TextInput : InputBase<string>, IInputTool
+    public class TextInput : InputBase<string>, ITextInput<string>
     {
         public TextInput(string title, string inputMessage, string errorMessage, Func<string, bool> predicate) : base(title, inputMessage, errorMessage)
         {
@@ -116,7 +114,7 @@ namespace ConsoleTools
             Converter = (input) => input;
         }
     }
-    public class RegexInput : InputBase<string>, IInputTool
+    public class RegexInput : InputBase<string>, ITextInput<string>
     {
         public string Pattern { get; set; }
         public RegexInput(string title, string inputMessage, string errorMessage, string pattern) : base(title, inputMessage, errorMessage)
