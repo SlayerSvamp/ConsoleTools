@@ -9,18 +9,23 @@ namespace ConsoleTools
     public interface IInputTool
     {
         string Title { get; set; }
-        string InputMessage { get; set; }
+        string Header { get; set; }
+        string ErrorMessage { get; set; }
+        string Footer { get; set; }
+        ConsoleTextBlock TitleBlock { get; set; }
+        ConsoleTextBlock HeaderBlock { get; set; }
+        ConsoleTextBlock ErrorMessageBlock { get; set; }
+        ConsoleTextBlock FooterBlock { get; set; }
         string OutputString { get; }
         IInputTool Select();
         object ObjSelected { get; }
     }
     public interface IInputTool<T>
     {
-        T Selected { get; }
+        T Selected { get; set; }
     }
     public interface ITextInput : IInputTool
     {
-        string ErrorMessage { get; set; }
     }
     public interface ITextInput<T> : ITextInput, IInputTool<T>
     {
@@ -28,9 +33,6 @@ namespace ConsoleTools
     }
     public interface ISelector : IInputTool
     {
-        string Footer { get; set; }
-        ConsoleColor FooterForegroundColor { get; set; }
-        ConsoleColor FooterBackgroundColor { get; set; }
         ConsoleColor SelectedForegroundColor { get; set; }
         ConsoleColor SelectedBackgroundColor { get; set; }
     }
@@ -38,7 +40,6 @@ namespace ConsoleTools
     {
         List<T> Choices { get; }
         Func<T, string> DisplayFormat { get; set; }
-        Func<T, bool> Filter { get; set; }
     }
     public interface IEnumSelector : ISelector
     {

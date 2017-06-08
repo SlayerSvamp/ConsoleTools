@@ -7,18 +7,23 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
-    public class Selector<T> : ISelector
+    public class Selector<T> : InputToolBase<T>, ISelector
     {
         protected int index;
-        IEnumerable<T> choices = null;
-        public string Title { get; set; }
-        public string InputMessage { get; set; }
-        public virtual T Selected { get { return Choices[Index]; } }
-        public virtual object ObjSelected { get { return Selected; } }
-        public string OutputString { get { return DisplayFormat(Selected); } }
-        public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
-        public List<T> Choices{get{ return choices.Where(Filter).ToList(); }}
-        public Func<T, bool> Filter { get; set; } = (x) => true;
+        public override T Selected
+        {
+            get { return Choices[Index]; }
+            set
+            {
+                var newIndex = Choices.IndexOf(value);
+                if (newIndex >= 0)
+                {
+                    Index = newIndex;
+                }
+            }
+        }
+        public List<T> Choices { get; private set; } = null;
+        public int IndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).Sum(); } }
         public int Index
         {
             get { return index; }
@@ -29,118 +34,92 @@ namespace ConsoleTools
                 index %= Choices.Count;
             }
         }
-        public ConsoleColor FooterForegroundColor { get; set; } = ConsoleColor.Gray;
-        public ConsoleColor FooterBackgroundColor { get; set; } = ConsoleColor.Black;
+        public Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyActionDictionary { get; private set; }
         public ConsoleColor SelectedForegroundColor { get; set; } = ConsoleColor.White;
         public ConsoleColor SelectedBackgroundColor { get; set; } = ConsoleColor.Black;
-        public string Footer { get; set; } = "";
 
-        public Selector(string title, string inputMessage, IEnumerable<T> choices)
+        public Selector(IEnumerable<T> choices)
         {
+            Choices = choices.ToList();
             if (choices == null)
             {
                 throw new ArgumentException("Selector type constructor: argument 'choices' cannot be null");
             }
 
-            if (title.Length > 79) title = title.Substring(0, 79);
-            Title = title;
-            InputMessage = inputMessage;
-
-            this.choices = choices.ToList();
+            var gHeader = $"Go to index (0-{Choices.Count - 1}):";
+            var gErrorMessage = $"Index must be between 0 and {Choices.Count - 1}!";
+            var gFooter = $"   {string.Join("\r\n   ", Choices.Select(DisplayFormat))}";
+            KeyActionDictionary = new Dictionary<ConsoleKey, Action<ConsoleModifiers>>
+            {
+                { ConsoleKey.UpArrow,(m) => Index-- },
+                { ConsoleKey.DownArrow, (m) => Index++ },
+                { ConsoleKey.G, (m) => {
+                    if(m != ConsoleModifiers.Control) return;
+                    Index = (int)new IntegerInput((x) => x >= 0 && x < Choices.Count)
+                        { Header = gHeader, ErrorMessage = gErrorMessage, Footer = gFooter }
+                        .Select()
+                        .ObjSelected;
+                    }
+                },
+                { ConsoleKey.LeftWindows, (m) => { } },
+                { ConsoleKey.RightWindows, (m) => { } },
+            };
         }
 
-        protected void SetCursor()
-        {
-            Console.CursorLeft = 1;
-            Console.CursorTop = 3 + Index;
-            Console.Write(">");
-            Console.CursorLeft = 1;
-        }
         protected virtual string FormatChoice(T choice)
         {
-            return $"   {DisplayFormat(choice)}";
+            return DisplayFormat(choice);
         }
         protected virtual void PrintChoice(T choice, string formatted)
         {
-            bool isActive = Choices[Index].Equals(choice);
-            ConsoleColor fgcolor = Console.ForegroundColor;
-            ConsoleColor bgcolor = Console.BackgroundColor;
-
-            if (isActive)
-            {
-                Console.ForegroundColor = SelectedForegroundColor;
-                Console.BackgroundColor = SelectedBackgroundColor;
-            }
-            Console.WriteLine(formatted);
-            if (isActive)
-            {
-                Console.ForegroundColor = fgcolor;
-                Console.BackgroundColor = bgcolor;
-            }
         }
-        protected void PrintFooter()
+        protected override void PrintContent()
         {
-            if (Footer != "")
-            {
-                var fgcolor = Console.ForegroundColor;
-                var bgcolor = Console.BackgroundColor;
-                Console.ForegroundColor = FooterForegroundColor;
-                Console.BackgroundColor = FooterBackgroundColor;
-                Console.WriteLine(Footer);
-                Console.ForegroundColor = fgcolor;
-                Console.BackgroundColor = bgcolor;
-            }
-        }
-        protected void PrintChoices(bool includeFooter = true)
-        {
-            Console.Clear();
-            Console.WriteLine();
-            Console.WriteLine($"   {InputMessage}");
-            Console.WriteLine();
             foreach (var choice in Choices)
             {
-                var text = FormatChoice(choice);
-                PrintChoice(choice, text);
+                bool isActive = Choices[Index].Equals(choice);
+                var block = new ConsoleTextBlock($"{(isActive ? ">" : " ")}{FormatChoice(choice)}");
+                if (isActive)
+                {
+                    block.ForegroundColor = SelectedForegroundColor;
+                    block.BackgroundColor = SelectedBackgroundColor;
+                }
+                PrintSegment(block, false);
+                Console.CursorTop--;
             }
-            Console.WriteLine();
-
-            if (includeFooter) PrintFooter();
+            Console.CursorTop++;
         }
         public virtual IInputTool Select()
         {
             while (true)
             {
-                PrintChoices();
-                SetCursor();
-                switch ((int)Console.ReadKey(true).Key)
+                PrintAll();
+                Console.CursorTop = IndexCursorPosition;
+                var input = Console.ReadKey(true);
+                if (KeyActionDictionary.TryGetValue(input.Key, out var a))
                 {
-                    case (int)ConsoleKey.UpArrow:
-                        Index--;
-                        goto case -1;
-                    case (int)ConsoleKey.DownArrow:
-                        Index++;
-                        goto case -1;
-                    case -1:
-                        Console.Write(" ");
-                        SetCursor();
-                        continue;
-                    default:
-                        Console.Clear();
-                        return this;
+                    a(input.Modifiers);
+                }
+                else
+                {
+                    return this;
                 }
             }
         }
     }
     public class InputToolSelector<T> : Selector<T> where T : IInputTool
     {
-        public InputToolSelector(string title, string inputMessage, IEnumerable<T> choices) : base(title, inputMessage, choices)
+        public InputToolSelector(IEnumerable<T> choices) : base(choices)
         {
             DisplayFormat = (value) => value.Title;
         }
     }
     public class EnumSelector<T> : Selector<T>, IEnumSelector<T> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public EnumSelector(string title, string inputMessage) : base(title, inputMessage, Enum.GetValues(typeof(T)).Cast<T>())
+        public EnumSelector() : this(x => true)
+        {
+        }
+        public EnumSelector(Func<T, bool> filter) : base(Enum.GetValues(typeof(T)).Cast<T>().Where(filter))
         {
             DisplayFormat = (value) => Regex.Replace(value.ToString(), @"([a-zåäö])([A-ZÅÄÖ])", m => $"{m.ToString()[0]} {m.ToString()[1]}".ToLower());
         }
@@ -150,8 +129,9 @@ namespace ConsoleTools
         public Action AfterToggle { get; set; } = () => { };
         public U TotalFlagValue { get; protected set; }
         public override T Selected { get { return (T)(dynamic)TotalFlagValue; } }
-        public FlagSelectorBase(string title, string inputMessage) : base(title, inputMessage)
+        public FlagSelectorBase()
         {
+            KeyActionDictionary.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(); });
         }
 
         protected bool IsSelected(T value)
@@ -160,63 +140,34 @@ namespace ConsoleTools
         }
         protected override string FormatChoice(T choice)
         {
-            return $"  {(IsSelected(choice) ? "»" : " ")} {DisplayFormat(choice)}";
+            return $"{(IsSelected(choice) ? "»" : " ")}{DisplayFormat(choice)}";
         }
         protected abstract void ToggleFlag();
-
-        public override IInputTool Select()
-        {
-            while (true)
-            {
-                PrintChoices();
-                SetCursor();
-                switch ((int)Console.ReadKey(true).Key)
-                {
-                    case (int)ConsoleKey.UpArrow:
-                        Index--;
-                        goto case -1;
-                    case (int)ConsoleKey.DownArrow:
-                        Index++;
-                        goto case -1;
-                    case -1:
-                        Console.Write(" ");
-                        SetCursor();
-                        break;
-                    case (int)ConsoleKey.Spacebar:
-                        ToggleFlag();
-                        AfterToggle();
-                        break;
-                    default:
-                        Console.Clear();
-                        return this;
-                }
-            }
-        }
     }
     public static class FlagSelector
     {
-        public static IFlagSelector<T> New<T>(string title, string inputMessage) where T : struct, IComparable, IConvertible, IFormattable
+        public static IFlagSelector<T> New<T>() where T : struct, IComparable, IConvertible, IFormattable
         {
             Type type = Enum.GetUnderlyingType(typeof(T));
             var typecode = Type.GetTypeCode(type);
             switch (typecode)
             {
                 case TypeCode.SByte:
-                    return new SByteFlagSelector<T>(title, inputMessage);
+                    return new SByteFlagSelector<T>();
                 case TypeCode.Byte:
-                    return new ByteFlagSelector<T>(title, inputMessage);
+                    return new ByteFlagSelector<T>();
                 case TypeCode.Int16:
-                    return new Int16FlagSelector<T>(title, inputMessage);
+                    return new Int16FlagSelector<T>();
                 case TypeCode.UInt16:
-                    return new UInt16FlagSelector<T>(title, inputMessage);
+                    return new UInt16FlagSelector<T>();
                 case TypeCode.Int32:
-                    return new Int32FlagSelector<T>(title, inputMessage);
+                    return new Int32FlagSelector<T>();
                 case TypeCode.UInt32:
-                    return new UInt32FlagSelector<T>(title, inputMessage);
+                    return new UInt32FlagSelector<T>();
                 case TypeCode.Int64:
-                    return new Int64FlagSelector<T>(title, inputMessage);
+                    return new Int64FlagSelector<T>();
                 case TypeCode.UInt64:
-                    return new UInt64FlagSelector<T>(title, inputMessage);
+                    return new UInt64FlagSelector<T>();
                 default:
                     throw new Exception("WTF!?");
             }
@@ -225,10 +176,6 @@ namespace ConsoleTools
     #region FlagSelectorAlternatives
     public class SByteFlagSelector<T> : FlagSelectorBase<T, sbyte> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public SByteFlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             sbyte val = (sbyte)Convert.ChangeType(Choices[Index], typeof(sbyte));
@@ -239,10 +186,6 @@ namespace ConsoleTools
     }
     public class ByteFlagSelector<T> : FlagSelectorBase<T, byte> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public ByteFlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             byte val = (byte)Convert.ChangeType(Choices[Index], typeof(byte));
@@ -253,10 +196,6 @@ namespace ConsoleTools
     }
     public class Int16FlagSelector<T> : FlagSelectorBase<T, short> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Int16FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             short val = (short)Convert.ChangeType(Choices[Index], typeof(short));
@@ -267,10 +206,6 @@ namespace ConsoleTools
     }
     public class UInt16FlagSelector<T> : FlagSelectorBase<T, ushort> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public UInt16FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             ushort val = (ushort)Convert.ChangeType(Choices[Index], typeof(ushort));
@@ -281,10 +216,6 @@ namespace ConsoleTools
     }
     public class Int32FlagSelector<T> : FlagSelectorBase<T, int> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Int32FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             int val = (int)Convert.ChangeType(Choices[Index], typeof(int));
@@ -295,10 +226,6 @@ namespace ConsoleTools
     }
     public class UInt32FlagSelector<T> : FlagSelectorBase<T, uint> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public UInt32FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             uint val = (uint)Convert.ChangeType(Choices[Index], typeof(uint));
@@ -309,10 +236,6 @@ namespace ConsoleTools
     }
     public class Int64FlagSelector<T> : FlagSelectorBase<T, long> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Int64FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             long val = (long)Convert.ChangeType(Choices[Index], typeof(long));
@@ -323,10 +246,6 @@ namespace ConsoleTools
     }
     public class UInt64FlagSelector<T> : FlagSelectorBase<T, ulong> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public UInt64FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
             ulong val = (ulong)Convert.ChangeType(Choices[Index], typeof(ulong));
