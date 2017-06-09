@@ -11,61 +11,19 @@ namespace ConsoleTools
     {
         String
     }
-    public abstract class InputBase<T> : IInputTool
+    public abstract class TextInputBase<T> : InputToolBase<T>, ITextInput<T>
     {
-        public T Selected { get; set; }
-        public object ObjSelected { get { return Selected; } }
-        public string OutputString
-        {
-            get
-            {
-                if (Selected == null) return string.Empty;
-                return $"{Selected}";
-            }
-        }
-        public string Title { get; set; }
-        public string InputMessage { get; set; }
-        public string ErrorMessage { get; set; }
-        public ConsoleColor ErrorForegroundColor { get; set; } = ConsoleColor.Red;
-        public ConsoleColor ErrorBackgroundColor { get; set; } = ConsoleColor.Black;
-        public InputBase(string title, string inputMessage, string errorMessage)
-        {
-            Title = title;
-            ErrorMessage = errorMessage;
-            InputMessage = inputMessage;
-        }
         protected Func<T, bool> Predicate { get; set; }
         protected Func<string, T> Converter { get; set; }
-        void WriteErrorMessage()
-        {
-            var currentBGColor = Console.BackgroundColor;
-            var currentFGColor = Console.ForegroundColor;
-            Console.BackgroundColor = ErrorBackgroundColor;
-            Console.ForegroundColor = ErrorForegroundColor;
-            Console.Write(ErrorMessage);
-            Console.BackgroundColor = currentBGColor;
-            Console.ForegroundColor = currentFGColor;
-        }
         public IInputTool Select()
         {
             var input = OutputString;
-            bool showErrorMessage = false;
             T selected;
             while (true)
             {
-                Console.Clear();
-                if (showErrorMessage)
-                {
-                    Console.CursorTop = 5;
-                    Console.CursorLeft = 3;
-                    WriteErrorMessage();
-                }
-                else showErrorMessage = true;
-
-                Console.CursorTop = 1;
-                Console.CursorLeft = 3;
-                Console.WriteLine(InputMessage);
-                Console.CursorLeft = 3;
+                PrintAll();
+                Console.CursorLeft = Indent;
+                Console.CursorTop = ContentCursorTop;
                 System.Windows.Forms.SendKeys.SendWait(OutputString);
                 input = Console.ReadLine();
                 try
@@ -77,47 +35,53 @@ namespace ConsoleTools
                     }
                 }
                 catch {/*empty*/}
+                HasError = true;
             }
             Selected = Converter(input);
+            HasError = false;
             return this;
         }
-    }
-    public class CustomInput<T> : InputBase<T>, IInputTool
-    {
-        public CustomInput(string title, string inputMessage, string errorMessage, Func<T, bool> predicate, Func<string, T> converter) : base(title, inputMessage, errorMessage)
+        protected override void PrintContent()
         {
-            Converter = converter;
-            Predicate = predicate;
+            Console.CursorTop += 3;
         }
     }
-    public class IntegerInput : InputBase<int>, IInputTool
+    public class CustomInput<T> : TextInputBase<T>, ITextInput<T>
     {
-        public IntegerInput(string title, string inputMessage, string errorMessage, Func<int, bool> predicate) : base(title, inputMessage, errorMessage)
+        public CustomInput(Func<T, bool> predicate, Func<string, T> converter)
+        {
+            Predicate = predicate;
+            Converter = converter;
+        }
+    }
+    public class IntegerInput : TextInputBase<int>, ITextInput<int>
+    {
+        public IntegerInput(Func<int, bool> predicate)
         {
             Predicate = predicate;
             Converter = (input) => Int32.Parse(input);
         }
     }
-    public class DoubleInput : InputBase<double>, IInputTool
+    public class DoubleInput : TextInputBase<double>, ITextInput<double>
     {
-        public DoubleInput(string title, string inputMessage, string errorMessage, Func<double, bool> predicate) : base(title, inputMessage, errorMessage)
+        public DoubleInput(Func<double, bool> predicate)
         {
             Predicate = predicate;
             Converter = (input) => Double.Parse(input);
         }
     }
-    public class TextInput : InputBase<string>, IInputTool
+    public class TextInput : TextInputBase<string>, ITextInput<string>
     {
-        public TextInput(string title, string inputMessage, string errorMessage, Func<string, bool> predicate) : base(title, inputMessage, errorMessage)
+        public TextInput(Func<string, bool> predicate)
         {
             Predicate = predicate;
             Converter = (input) => input;
         }
     }
-    public class RegexInput : InputBase<string>, IInputTool
+    public class RegexInput : TextInputBase<string>, ITextInput<string>
     {
         public string Pattern { get; set; }
-        public RegexInput(string title, string inputMessage, string errorMessage, string pattern) : base(title, inputMessage, errorMessage)
+        public RegexInput(string pattern)
         {
             Pattern = pattern;
             Predicate = (input) => Regex.IsMatch(input, pattern);

@@ -7,41 +7,38 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
-    public class Selector<T> : IInputTool
+    public class Selector<T> : InputToolBase<T>, ISelector<T>
     {
         protected int index;
-        IEnumerable<T> choices = null;
-        public string Title { get; set; }
-        public string InputMessage { get; set; }
-        public virtual T Selected { get { return Choices[Index]; } }
-        public virtual object ObjSelected { get { return Selected; } }
-        public string OutputString { get { return DisplayFormat(Selected); } }
-        public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
-        public List<T> Choices { get { return choices.Where(Filter).ToList(); } }
-        public Func<T, bool> Filter { get; set; } = (x) => true;
-        public Selector(string title, string inputMessage, IEnumerable<T> choices)
+        protected int previewIndex;
+        public bool AllowCancel { get; set; } = true;
+        public override T Selected
         {
-            if (title.Length > 79) title = title.Substring(0, 79);
-            Title = title;
-            InputMessage = inputMessage;
-            if (choices == null)
+            get { return Choices[Index]; }
+            set
             {
-                throw new ArgumentException("Selector type constructor: argument 'choices' cannot be null");
-            }
-
-            SetDefaultDisplayFormat();
-
-            this.choices = choices.ToList();
-        }
-
-        protected void SetDefaultDisplayFormat()
-        {
-            if (typeof(IInputTool).IsAssignableFrom(typeof(T)))
-            {
-                DisplayFormat = (value) => (value as IInputTool).Title;
+                var newIndex = Choices.IndexOf(value);
+                if (newIndex >= 0)
+                {
+                    Index = newIndex;
+                }
             }
         }
-
+        public virtual T PreviewSelected
+        {
+            get { return Choices[PreviewIndex]; }
+            set
+            {
+                var newIndex = Choices.IndexOf(value);
+                if (newIndex >= 0)
+                {
+                    PreviewIndex = newIndex;
+                }
+            }
+        }
+        public List<T> Choices { get; private set; } = null;
+        public int IndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < Index).Sum(); } }
+        public int PreviewIndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < PreviewIndex).Sum(); } }
         public int Index
         {
             get { return index; }
@@ -52,160 +49,173 @@ namespace ConsoleTools
                 index %= Choices.Count;
             }
         }
-        public ConsoleColor FooterColor { get; set; }
-        public string Footer { get; set; } = "";
-        protected void SetCursor()
+        public int PreviewIndex
         {
-            Console.CursorLeft = 1;
-            Console.CursorTop = 3 + Index;
-            Console.Write(">");
-            Console.CursorLeft = 1;
+            get { return previewIndex; }
+            set
+            {
+                previewIndex = value;
+                while (previewIndex < 0) previewIndex += Choices.Count;
+                previewIndex %= Choices.Count;
+            }
         }
-        protected virtual void PrintChoice(T choice, string formatted)
+        public ColorWriter SelectedColors { get; set; } = new ColorWriter { ForegroundColor = ConsoleColor.White };
+        public Action<T> PreviewTrigger { get; set; } = (t) => { };
+        public bool StepOut { get; set; } = false;
+        public Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyActionDictionary { get; private set; }
+
+        public Selector(IEnumerable<T> choices)
         {
-            bool isActive = Choices[Index].Equals(choice);
-            if (isActive) Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(formatted);
-            if (isActive) Console.ForegroundColor = ConsoleColor.Gray;
+            Choices = choices.ToList();
+            if (choices == null)
+            {
+                throw new ArgumentException("Selector type constructor: argument 'choices' cannot be null");
+            }
+
+            var gHeader = $"Go to index (0-{Choices.Count - 1}):";
+            var gErrorMessage = $"Index must be between 0 and {Choices.Count - 1}!";
+            var gFooter = string.Join("\n", Choices.Select((s, i) => $"{i}: {DisplayFormat(s)}"));
+            KeyActionDictionary = new Dictionary<ConsoleKey, Action<ConsoleModifiers>>
+            {
+                { ConsoleKey.UpArrow,(m) => {PreviewIndex--; PreviewTrigger(PreviewSelected); } },
+                { ConsoleKey.DownArrow, (m) => {PreviewIndex++; PreviewTrigger(PreviewSelected); } },
+                {
+                ConsoleKey.G, (m) =>
+                {
+                    if (m != ConsoleModifiers.Control) return;
+                    PreviewIndex = (int)new IntegerInput(x => x >= 0 && x < Choices.Count)
+                    { Header = gHeader, ErrorMessage = gErrorMessage, Footer = gFooter }
+                        .Select()
+                        .ObjSelected;
+                }},
+                { ConsoleKey.LeftWindows, (m) => { } },
+                { ConsoleKey.RightWindows, (m) => { } },
+                { ConsoleKey.Escape, (m) => StepOut = true }
+            };
+            PreviewSelected = Selected;
         }
-        protected virtual void PrintChoices(bool includeFooter = true)
+
+        protected virtual string FormatChoice(T choice)
         {
-            Console.Clear();
-            Console.WriteLine();
-            Console.WriteLine($"   {InputMessage}");
-            Console.WriteLine();
+            return DisplayFormat(choice);
+        }
+        protected override void PrintContent()
+        {
             foreach (var choice in Choices)
             {
-                PrintChoice(choice, $"   {DisplayFormat(choice)}");
+                bool isActive = Choices[PreviewIndex].Equals(choice);
+                var value = $"{(isActive ? ">" : " ")}{FormatChoice(choice)}";
+                var colors = isActive ? SelectedColors : new ColorWriter();
+                PrintSegment(colors, value, false);
+                Console.CursorTop--;
             }
-            Console.WriteLine();
-            if (includeFooter)
-            {
-                Console.ForegroundColor = FooterColor;
-                Console.WriteLine(Footer);
-                Console.ResetColor();
-            }
+            Console.CursorTop++;
         }
-        public virtual IInputTool Select()
+        protected virtual void PostSelect()
         {
+            Selected = PreviewSelected;
+            PostSelectTrigger(Selected);
+        }
+        protected virtual void PreSelect()
+        {
+            StepOut = false;
+        }
+        public IInputTool Select()
+        {
+            PreSelect();
+            PreSelectTrigger(Selected);
             while (true)
             {
-                PrintChoices();
-                SetCursor();
-                switch ((int)Console.ReadKey(true).Key)
+                PrintAll();
+                Console.CursorTop = PreviewIndexCursorPosition;
+                Console.CursorLeft = Indent;
+                var input = Console.ReadKey(true);
+                if (KeyActionDictionary.TryGetValue(input.Key, out var a))
                 {
-                    case (int)ConsoleKey.UpArrow:
-                        Index--;
-                        goto case -1;
-                    case (int)ConsoleKey.DownArrow:
-                        Index++;
-                        goto case -1;
-                    case -1:
-                        Console.Write(" ");
-                        SetCursor();
-                        continue;
-                    default:
-                        Console.Clear();
+                    a(input.Modifiers);
+                    if (StepOut && AllowCancel)
+                    {
+                        PreviewSelected = Selected;
                         return this;
+                    }
+                }
+                else
+                {
+                    PostSelect();
+                    return this;
                 }
             }
         }
     }
-    public class EnumSelector<T> : Selector<T>, IInputTool where T : struct, IComparable, IConvertible, IFormattable
+    public class InputToolSelector<T> : Selector<T>, IInputToolSelector<T> where T : IInputTool
     {
-        public EnumSelector(string title, string inputMessage) : base(title, inputMessage, Enum.GetValues(typeof(T)).Cast<T>())
+        protected override void PostSelect()
+        {
+            base.PostSelect();
+            Selected.Select();
+            if(!StepOut) Select();
+        }
+        public InputToolSelector(IEnumerable<T> choices) : base(choices)
+        {
+            DisplayFormat = (value) => value.Title;
+        }
+    }
+    public class EnumSelector<T> : Selector<T>, IEnumSelector<T> where T : struct, IComparable, IConvertible, IFormattable
+    {
+        public EnumSelector() : this(x => true)
+        {
+        }
+        public EnumSelector(Func<T, bool> filter) : base(Enum.GetValues(typeof(T)).Cast<T>().Where(filter))
         {
             DisplayFormat = (value) => Regex.Replace(value.ToString(), @"([a-zåäö])([A-ZÅÄÖ])", m => $"{m.ToString()[0]} {m.ToString()[1]}".ToLower());
         }
     }
     public abstract class FlagSelectorBase<T, U> : EnumSelector<T>, IFlagSelector<T> where T : struct, IComparable, IConvertible, IFormattable
     {
+        public Action<T> AfterToggle { get; set; } = (t) => { };
         public U TotalFlagValue { get; protected set; }
-        public override T Selected { get { return (T)(dynamic)TotalFlagValue; } }
-        public FlagSelectorBase(string title, string inputMessage) : base(title, inputMessage)
+        public U PreviewTotalFlagValue { get; protected set; }
+        public override T Selected { get { return (T)(dynamic)TotalFlagValue; } set { TotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
+        public override T PreviewSelected { get { return (T)(dynamic)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
+        public FlagSelectorBase()
         {
+            KeyActionDictionary.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewSelected); });
         }
 
         protected bool IsSelected(T value)
         {
-            return (Selected as Enum).HasFlag(value as Enum);
+            return (PreviewSelected as Enum).HasFlag(value as Enum);
         }
-        protected override void PrintChoices(bool includeFooter = true)
+        protected override string FormatChoice(T choice)
         {
-            Console.Clear();
-            Console.WriteLine();
-            Console.WriteLine($"   {InputMessage}");
-            Console.WriteLine();
-            foreach (var choice in Choices)
-            {
-                PrintChoice(choice, $"  {(IsSelected(choice) ? "»" : " ")} {DisplayFormat(choice)}");
-            }
-            Console.WriteLine();
-            if (includeFooter)
-            {
-                Console.ForegroundColor = FooterColor;
-                Console.WriteLine(Footer);
-                Console.ResetColor();
-            }
+            return $"{(IsSelected(choice) ? "»" : " ")}{DisplayFormat(choice)}";
         }
         protected abstract void ToggleFlag();
-
-        public override IInputTool Select()
-        {
-            while (true)
-            {
-                PrintChoices();
-                SetCursor();
-                switch ((int)Console.ReadKey(true).Key)
-                {
-                    case (int)ConsoleKey.UpArrow:
-                        Index--;
-                        goto case -1;
-                    case (int)ConsoleKey.DownArrow:
-                        Index++;
-                        goto case -1;
-                    case -1:
-                        Console.Write(" ");
-                        SetCursor();
-                        break;
-                    case (int)ConsoleKey.Spacebar:
-                        ToggleFlag();
-                        break;
-                    default:
-                        Console.Clear();
-                        return this;
-                }
-            }
-        }
-    }
-    public interface IFlagSelector<T> : IInputTool
-    {
-        Func<T, string> DisplayFormat { get; set; }
     }
     public static class FlagSelector
     {
-        public static IFlagSelector<T> New<T>(string title, string inputMessage) where T : struct, IComparable, IConvertible, IFormattable
+        public static IFlagSelector<T> New<T>() where T : struct, IComparable, IConvertible, IFormattable
         {
             Type type = Enum.GetUnderlyingType(typeof(T));
             var typecode = Type.GetTypeCode(type);
             switch (typecode)
             {
                 case TypeCode.SByte:
-                    return new SByteFlagSelector<T>(title, inputMessage);
+                    return new SByteFlagSelector<T>();
                 case TypeCode.Byte:
-                    return new ByteFlagSelector<T>(title, inputMessage);
+                    return new ByteFlagSelector<T>();
                 case TypeCode.Int16:
-                    return new Int16FlagSelector<T>(title, inputMessage);
+                    return new Int16FlagSelector<T>();
                 case TypeCode.UInt16:
-                    return new UInt16FlagSelector<T>(title, inputMessage);
+                    return new UInt16FlagSelector<T>();
                 case TypeCode.Int32:
-                    return new Int32FlagSelector<T>(title, inputMessage);
+                    return new Int32FlagSelector<T>();
                 case TypeCode.UInt32:
-                    return new UInt32FlagSelector<T>(title, inputMessage);
+                    return new UInt32FlagSelector<T>();
                 case TypeCode.Int64:
-                    return new Int64FlagSelector<T>(title, inputMessage);
+                    return new Int64FlagSelector<T>();
                 case TypeCode.UInt64:
-                    return new UInt64FlagSelector<T>(title, inputMessage);
+                    return new UInt64FlagSelector<T>();
                 default:
                     throw new Exception("WTF!?");
             }
@@ -214,114 +224,82 @@ namespace ConsoleTools
     #region FlagSelectorAlternatives
     public class SByteFlagSelector<T> : FlagSelectorBase<T, sbyte> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public SByteFlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            sbyte val = (sbyte)Convert.ChangeType(Choices[Index], typeof(sbyte));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= (sbyte)~val;
-            else TotalFlagValue |= val;
+            sbyte val = (sbyte)Convert.ChangeType(Choices[PreviewIndex], typeof(sbyte));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= (sbyte)~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     public class ByteFlagSelector<T> : FlagSelectorBase<T, byte> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public ByteFlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            byte val = (byte)Convert.ChangeType(Choices[Index], typeof(byte));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= (byte)~val;
-            else TotalFlagValue |= val;
+            byte val = (byte)Convert.ChangeType(Choices[PreviewIndex], typeof(byte));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= (byte)~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     public class Int16FlagSelector<T> : FlagSelectorBase<T, short> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Int16FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            short val = (short)Convert.ChangeType(Choices[Index], typeof(short));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= (short)~val;
-            else TotalFlagValue |= val;
+            short val = (short)Convert.ChangeType(Choices[PreviewIndex], typeof(short));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= (short)~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     public class UInt16FlagSelector<T> : FlagSelectorBase<T, ushort> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public UInt16FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            ushort val = (ushort)Convert.ChangeType(Choices[Index], typeof(ushort));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= (ushort)~val;
-            else TotalFlagValue |= val;
+            ushort val = (ushort)Convert.ChangeType(Choices[PreviewIndex], typeof(ushort));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= (ushort)~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     public class Int32FlagSelector<T> : FlagSelectorBase<T, int> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Int32FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            int val = (int)Convert.ChangeType(Choices[Index], typeof(int));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= ~val;
-            else TotalFlagValue |= val;
+            int val = (int)Convert.ChangeType(Choices[PreviewIndex], typeof(int));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= ~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     public class UInt32FlagSelector<T> : FlagSelectorBase<T, uint> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public UInt32FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            uint val = (uint)Convert.ChangeType(Choices[Index], typeof(uint));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= ~val;
-            else TotalFlagValue |= val;
+            uint val = (uint)Convert.ChangeType(Choices[PreviewIndex], typeof(uint));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= ~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     public class Int64FlagSelector<T> : FlagSelectorBase<T, long> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Int64FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            long val = (long)Convert.ChangeType(Choices[Index], typeof(long));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= ~val;
-            else TotalFlagValue |= val;
+            long val = (long)Convert.ChangeType(Choices[PreviewIndex], typeof(long));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= ~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     public class UInt64FlagSelector<T> : FlagSelectorBase<T, ulong> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public UInt64FlagSelector(string title, string inputMessage) : base(title, inputMessage)
-        {
-        }
-
         protected override void ToggleFlag()
         {
-            ulong val = (ulong)Convert.ChangeType(Choices[Index], typeof(ulong));
-            if (IsSelected(Choices[Index]))
-                TotalFlagValue &= ~val;
-            else TotalFlagValue |= val;
+            ulong val = (ulong)Convert.ChangeType(Choices[PreviewIndex], typeof(ulong));
+            if (IsSelected(Choices[PreviewIndex]))
+                PreviewTotalFlagValue &= ~val;
+            else PreviewTotalFlagValue |= val;
         }
     }
     #endregion
