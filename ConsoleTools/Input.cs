@@ -92,7 +92,6 @@ namespace ConsoleTools
     }
     public class IntegerInput : InputBase<int>, IInputTool
     {
-        Func<int, bool> AcceptableValue { get; set; }
         public IntegerInput(string title, string inputMessage, string errorMessage, Func<int, bool> predicate) : base(title, inputMessage, errorMessage)
         {
             Predicate = predicate;
@@ -101,7 +100,6 @@ namespace ConsoleTools
     }
     public class DoubleInput : InputBase<double>, IInputTool
     {
-        Func<double, bool> AcceptableValue { get; set; }
         public DoubleInput(string title, string inputMessage, string errorMessage, Func<double, bool> predicate) : base(title, inputMessage, errorMessage)
         {
             Predicate = predicate;

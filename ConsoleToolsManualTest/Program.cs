@@ -116,7 +116,7 @@ namespace ConsoleToolsManualTest
             Type type = typeof(IInputTool);
             var menuArray = new IInputTool[]
             {
-                new RegexInput("Name", "What is your name?",$"Must be alphanumeric, comma ',' or space ' '", @"^[a-zA-Z0-9 ,]+$"),
+                new RegexInput("Name", "What is your name?",$"Must be alphanumeric, comma ',' or space ' '", @"^[a-zA-Z0-9åäöÅÄÖ ,]+$"),
                 new IntegerInput("Age", "How old are you?", $"Must be in range {minAge}-{maxAge}", (val) => val >= minAge && val <= maxAge),
                 new Selector<string>("Gender", "What's your gender?", new string[] { "♂ - Male", "♀ - Female", "o - Other" }),
                 new Selector<string>("Play style", "Choose your playstyle", new string[] { "♣ - Killer", "♦ - Achiever", "♥ - Socializer", "♠ - Explorer" }),
