@@ -6,18 +6,12 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
-    public class ConsoleTextBlock
+    public class ColorWriter
     {
-        public string Text { get; set; }
         public ConsoleColor ForegroundColor { get; set; } = (ConsoleColor)(-1);
         public ConsoleColor BackgroundColor { get; set; } = (ConsoleColor)(-1);
-        public ConsoleTextBlock(string text = "")
+        public void Write(string value)
         {
-            Text = text;
-        }
-        public void Write(string value = null)
-        {
-            value = value ?? Text;
             if ((int)ForegroundColor == -1 && (int)BackgroundColor == -1)
             {
                 Console.Write(value);
@@ -63,17 +57,19 @@ namespace ConsoleTools
         }
         public virtual T Selected { get; set; }
         public object ObjSelected { get { return Selected; } }
-        public string Title { get { return TitleBlock.Text; } set { TitleBlock.Text = value; } }
-        public string Header { get { return HeaderBlock.Text; } set { HeaderBlock.Text = value; } }
-        public string Footer { get { return FooterBlock.Text; } set { FooterBlock.Text = value; } }
-        public string ErrorMessage { get { return ErrorMessageBlock.Text; } set { ErrorMessageBlock.Text = value; } }
-        public ConsoleTextBlock TitleBlock { get; set; } = new ConsoleTextBlock();
-        public ConsoleTextBlock HeaderBlock { get; set; } = new ConsoleTextBlock();
-        public ConsoleTextBlock FooterBlock { get; set; } = new ConsoleTextBlock();
-        public ConsoleTextBlock ErrorMessageBlock { get; set; } = new ConsoleTextBlock() { ForegroundColor = ConsoleColor.Red };
+        public string Title { get; set; } = "";
+        public string Header { get; set; } = "";
+        public string Footer { get; set; } = "";
+        public string ErrorMessage { get; set; } = "";
+        public ColorWriter TitleColors { get; set; } = new ColorWriter();
+        public ColorWriter HeaderColors { get; set; } = new ColorWriter();
+        public ColorWriter FooterColors { get; set; } = new ColorWriter();
+        public ColorWriter ErrorMessageColors { get; set; } = new ColorWriter { ForegroundColor = ConsoleColor.Red };
         protected bool HasError { get; set; } = false;
         public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
         public string OutputString { get { return Selected != null ? DisplayFormat(Selected) : string.Empty; } }
+        public Action<T> PreSelectTrigger { get; set; } = (t) => { };
+        public Action<T> PostSelectTrigger { get; set; } = (t) => { };
 
         protected IEnumerable<string> GetPrintLines(string value)
         {
@@ -90,32 +86,32 @@ namespace ConsoleTools
                 }
             }
         }
-        protected int PrintSegment(ConsoleTextBlock value, bool emptyLineAfter = true)
+        protected int PrintSegment(ColorWriter colors, string value, bool padded = true)
         {
-            if (value.Text.Length == 0) return 0;
-            var blocks = GetPrintLines(value.Text).ToList();
-            foreach (var block in blocks)
+            if (value.Length == 0) return 0;
+            var lines = GetPrintLines(value).ToList();
+            foreach (var line in lines)
             {
                 Console.CursorLeft = Indent;
-                value.Write(block);
+                colors.Write(line);
                 Console.CursorTop++;
             }
             Console.CursorTop++;
-            return blocks.Count;
+            return lines.Count;
         }
         protected void PrintHead()
         {
             Console.CursorTop = 1;
-            PrintSegment(HeaderBlock);
+            PrintSegment(HeaderColors, Header);
         }
         protected void PrintErrorMessage()
         {
-            if (HasError) PrintSegment(ErrorMessageBlock);
+            if (HasError) PrintSegment(ErrorMessageColors, ErrorMessage);
         }
         protected abstract void PrintContent();
         protected void PrintFooter()
         {
-            PrintSegment(FooterBlock);
+            PrintSegment(FooterColors, Footer);
         }
         protected void PrintAll()
         {

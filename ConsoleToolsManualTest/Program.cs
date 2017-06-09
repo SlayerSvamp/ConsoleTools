@@ -66,7 +66,7 @@ namespace ConsoleToolsManualTest
             Vattenprovet = 0x100000,
             VattenprovetÖppetVatten = 0x200000,
         }
-        static string GetInfoString(IEnumerable<IInputTool> menuArray, EnumSelector<FlagsDisplayStyle> flagsDisplayStyle)
+        static string GetInfoString(IEnumerable<IInputTool> menuArray, IEnumSelector<FlagsDisplayStyle> flagsDisplayStyle)
         {
             var sb = new StringBuilder();
             foreach (var line in menuArray)
@@ -76,6 +76,8 @@ namespace ConsoleToolsManualTest
                     case "Flags display style":
                     case "Color":
                     case "Exit":
+                    case "Console foreground color":
+                    case "Console background color":
                         break;
                     default:
                         sb.Append($"{line.Title}: {line.OutputString}{Environment.NewLine}");
@@ -92,6 +94,7 @@ namespace ConsoleToolsManualTest
         [STAThread]
         static void Main(string[] args)
         {
+
             var doLoad = new EnumSelector<Confirm> { Title = "Load character", Header = "Do you want to load a character? (from file)" };
             if ((Confirm)doLoad.Select().ObjSelected == Confirm.Yes)
             {
@@ -106,12 +109,24 @@ namespace ConsoleToolsManualTest
             Console.WindowHeight = 30;
             int minAge = 1;
             int maxAge = 200;
-            EnumSelector<ConsoleColor> fcolor;
-            EnumSelector<ConsoleColor> bcolor;
-            EnumSelector<FlagsDisplayStyle> flagsDisplayStyle;
+            IEnumSelector<ConsoleColor> fcolor;
+            IEnumSelector<ConsoleColor> bcolor;
+            IEnumSelector<ConsoleColor> cfg;
+            IEnumSelector<ConsoleColor> cbg;
+            IInputToolSelector<IEnumSelector<ConsoleColor>> colors = null;
+
+            IEnumSelector<FlagsDisplayStyle> flagsDisplayStyle;
             ulong flagsMaxValue = GetMaxValue<Flags>();
             IFlagSelector<Flags> flags;
             IFlagSelector<Simmärken> sim;
+
+            var colorsArray = new IEnumSelector<ConsoleColor>[]
+            {
+                fcolor = new EnumSelector<ConsoleColor>{ Title = "Foreground color", Header = "Choose main menu footer foreground color", Footer = "Footer preview text", Selected = ConsoleColor.DarkGray, PreviewTrigger = (x) =>  colors.FooterColors.ForegroundColor = x },
+                bcolor = new EnumSelector<ConsoleColor>{ Title = "Background color", Header = "Choose main menu footer background color", Footer = "Footer preview text", PreviewTrigger = (x) =>  colors.FooterColors.BackgroundColor = x },
+                cfg = new EnumSelector<ConsoleColor>{ Title = "Console foreground color", Header = "Choose default foreground color for the program", Selected = ConsoleColor.Gray, PreviewTrigger = (x) => Console.ForegroundColor = x},
+                cbg = new EnumSelector<ConsoleColor>{ Title = "Console background color", Header = "Choose default background color for the program", Selected = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x },
+            };
             var decimalSeparator = Convert.ToChar(CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator);
             var menuArray = new IInputTool[]{
                 new RegexInput( @"^[a-zA-Z0-9 ,]+$"){ Title = "Name", Header = "What is your name?", ErrorMessage = $"Must be alphanumeric, comma ',' or space ' '" },
@@ -120,43 +135,48 @@ namespace ConsoleToolsManualTest
                 new Selector<string>(new string[] { "♣ - Killer", "♦ - Achiever", "♥ - Socializer", "♠ - Explorer" }){ Title = "Play style", Header = "Choose your playstyle" },
                 new Selector<bool>(new bool[] { true, false }) { Title = "Test", Header = "test this bool", DisplayFormat = (input => input ? "Japp" : "Näpp")},
                 new DoubleInput(x => x >= 0 && x <= double.MaxValue) { Title = "Double time!", Header = "What is your account balance? ($)", ErrorMessage = $"Value must be real number, with '{decimalSeparator}' as delimiter" },
-                fcolor = new EnumSelector<ConsoleColor>{ Title = "Foreground color", Header = "Choose main menu footer foreground color", Selected = ConsoleColor.DarkGray},
-                bcolor = new EnumSelector<ConsoleColor>{ Title = "Background color", Header = "Choose main menu footer background color"},
+                colors = new InputToolSelector<IEnumSelector<ConsoleColor>>(colorsArray){ Title = "Colors", Footer = "Footer preview text"},
                 new EnumSelector<Weapon>{ Title = "Weapon", Header = "Choose your prefered weapon" },
                 new EnumSelector<Armour>{ Title = "Armour", Header  = "Choose prefered armour" },
                 sim = FlagSelector.New<Simmärken>(),
                 flags = FlagSelector.New<Flags>(),
                 flagsDisplayStyle = new EnumSelector<FlagsDisplayStyle>{ Title = "Flags display style", Header = "Display flags as:" },
-                new EnumSelector<Confirm>{ Title = "Exit",Header = "Do you really wat to exit?" }
+                new EnumSelector<Confirm>{ Title = "Exit", Header = "Do you really wat to exit?" }
             };
             sim.Title = "Simmärken";
             sim.Header = "Vilka simmärken har du tagit?";
-            sim.FooterBlock.ForegroundColor = ConsoleColor.DarkMagenta;
+            sim.FooterColors.ForegroundColor = ConsoleColor.DarkMagenta;
             flags.Title = "Flags";
             flags.Header = $"Choose int -> get flags (0-{flagsMaxValue})";
             var menu = new InputToolSelector<IInputTool>(menuArray) { Title = "Main menu", Header = "Main menu" };
+            colors.FooterColors = menu.FooterColors;
+            fcolor.FooterColors = menu.FooterColors;
+            bcolor.FooterColors = menu.FooterColors;
 
             foreach (var tool in new IEnumerable<IInputTool>[] { menu.Choices, new IInputTool[] { menu } }.SelectMany(x => x))
             {
                 if (typeof(ISelector).IsAssignableFrom(tool.GetType()))
                 {
-                    (tool as ISelector).SelectedForegroundColor = ConsoleColor.Green;
+                    (tool as ISelector).SelectedColors.ForegroundColor = ConsoleColor.Green;
                 }
             }
             sim.AfterToggle = () => sim.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", sim.OutputString.Split(',').Select(s => s.Trim())))}";
             sim.AfterToggle();
-            sim.SelectedBackgroundColor = ConsoleColor.DarkRed;
-            sim.SelectedForegroundColor = ConsoleColor.Black;
+            sim.SelectedColors.BackgroundColor = ConsoleColor.DarkRed;
+            sim.SelectedColors.ForegroundColor = ConsoleColor.Black;
             var flagsDefaultDisplayFormat = flags.DisplayFormat;
-            do
+            Console.WindowHeight += 20;
+            //do
+            //{
+            menu.PostSelectTrigger = (_) =>
             {
-                menu.FooterBlock.ForegroundColor = fcolor.Selected;
-                menu.FooterBlock.BackgroundColor = bcolor.Selected;
+                menu.FooterColors.ForegroundColor = fcolor.Selected;
+                menu.FooterColors.BackgroundColor = bcolor.Selected;
                 flags.DisplayFormat = flagsDisplayStyle.Selected == FlagsDisplayStyle.FlagNames ? flagsDefaultDisplayFormat : (x) => $"{(ulong)x}";
                 menu.Footer = GetInfoString(menu.Choices, flagsDisplayStyle);
-                menu.Select();
-                menu.Selected.Select();
-            } while (menu.Selected.Title != "Exit" || (Confirm)menu.Selected.ObjSelected != Confirm.Yes);
+            };
+            menu.Select();
+            //} while (menu.Selected.Title != "Exit" || (Confirm)menu.Selected.ObjSelected != Confirm.Yes);
         }
     }
 }
