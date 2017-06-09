@@ -66,6 +66,6 @@ namespace ConsoleTools
     }
     public interface IFlagSelector<T> : IFlagSelector, IEnumSelector<T>
     {
-        Action AfterToggle { get; set; }
+        Action<T> AfterToggle { get; set; }
     }
 }

@@ -11,6 +11,7 @@ namespace ConsoleTools
     {
         protected int index;
         protected int previewIndex;
+        public bool AllowCancel { get; set; } = true;
         public override T Selected
         {
             get { return Choices[Index]; }
@@ -91,8 +92,7 @@ namespace ConsoleTools
                 { ConsoleKey.RightWindows, (m) => { } },
                 { ConsoleKey.Escape, (m) => StepOut = true }
             };
-
-
+            PreviewSelected = Selected;
         }
 
         protected virtual string FormatChoice(T choice)
@@ -114,6 +114,7 @@ namespace ConsoleTools
         protected virtual void PostSelect()
         {
             Selected = PreviewSelected;
+            PostSelectTrigger(Selected);
         }
         protected virtual void PreSelect()
         {
@@ -132,7 +133,7 @@ namespace ConsoleTools
                 if (KeyActionDictionary.TryGetValue(input.Key, out var a))
                 {
                     a(input.Modifiers);
-                    if (StepOut)
+                    if (StepOut && AllowCancel)
                     {
                         PreviewSelected = Selected;
                         return this;
@@ -141,7 +142,6 @@ namespace ConsoleTools
                 else
                 {
                     PostSelect();
-                    PostSelectTrigger(Selected);
                     return this;
                 }
             }
@@ -153,7 +153,7 @@ namespace ConsoleTools
         {
             base.PostSelect();
             Selected.Select();
-            Select();
+            if(!StepOut) Select();
         }
         public InputToolSelector(IEnumerable<T> choices) : base(choices)
         {
@@ -172,19 +172,19 @@ namespace ConsoleTools
     }
     public abstract class FlagSelectorBase<T, U> : EnumSelector<T>, IFlagSelector<T> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Action AfterToggle { get; set; } = () => { };
+        public Action<T> AfterToggle { get; set; } = (t) => { };
         public U TotalFlagValue { get; protected set; }
         public U PreviewTotalFlagValue { get; protected set; }
-        public override T Selected { get { return (T)(dynamic)TotalFlagValue; } }
-        public override T PreviewSelected { get { return (T)(dynamic)PreviewTotalFlagValue; } }
+        public override T Selected { get { return (T)(dynamic)TotalFlagValue; } set { TotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
+        public override T PreviewSelected { get { return (T)(dynamic)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
         public FlagSelectorBase()
         {
-            KeyActionDictionary.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(); });
+            KeyActionDictionary.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewSelected); });
         }
 
         protected bool IsSelected(T value)
         {
-            return (Selected as Enum).HasFlag(value as Enum);
+            return (PreviewSelected as Enum).HasFlag(value as Enum);
         }
         protected override string FormatChoice(T choice)
         {

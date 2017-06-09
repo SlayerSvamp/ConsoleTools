@@ -114,7 +114,7 @@ namespace ConsoleToolsManualTest
             IEnumSelector<ConsoleColor> cfg;
             IEnumSelector<ConsoleColor> cbg;
             IInputToolSelector<IEnumSelector<ConsoleColor>> colors = null;
-
+            IEnumSelector<Confirm> exit;
             IEnumSelector<FlagsDisplayStyle> flagsDisplayStyle;
             ulong flagsMaxValue = GetMaxValue<Flags>();
             IFlagSelector<Flags> flags;
@@ -141,7 +141,7 @@ namespace ConsoleToolsManualTest
                 sim = FlagSelector.New<Simmärken>(),
                 flags = FlagSelector.New<Flags>(),
                 flagsDisplayStyle = new EnumSelector<FlagsDisplayStyle>{ Title = "Flags display style", Header = "Display flags as:" },
-                new EnumSelector<Confirm>{ Title = "Exit", Header = "Do you really wat to exit?" }
+                exit = new EnumSelector<Confirm>{ Title = "Exit", Header = "Do you really wat to exit?" }
             };
             sim.Title = "Simmärken";
             sim.Header = "Vilka simmärken har du tagit?";
@@ -160,23 +160,21 @@ namespace ConsoleToolsManualTest
                     (tool as ISelector).SelectedColors.ForegroundColor = ConsoleColor.Green;
                 }
             }
-            sim.AfterToggle = () => sim.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", sim.OutputString.Split(',').Select(s => s.Trim())))}";
-            sim.AfterToggle();
+            sim.AfterToggle = (x) => sim.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", sim.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
+            sim.AfterToggle(sim.PreviewSelected);
             sim.SelectedColors.BackgroundColor = ConsoleColor.DarkRed;
             sim.SelectedColors.ForegroundColor = ConsoleColor.Black;
             var flagsDefaultDisplayFormat = flags.DisplayFormat;
             Console.WindowHeight += 20;
-            //do
-            //{
-            menu.PostSelectTrigger = (_) =>
+            menu.PostSelectTrigger = (x) =>
             {
-                menu.FooterColors.ForegroundColor = fcolor.Selected;
-                menu.FooterColors.BackgroundColor = bcolor.Selected;
-                flags.DisplayFormat = flagsDisplayStyle.Selected == FlagsDisplayStyle.FlagNames ? flagsDefaultDisplayFormat : (x) => $"{(ulong)x}";
+                /*menu.FooterColors.ForegroundColor = fcolor.Selected;
+                menu.FooterColors.BackgroundColor = bcolor.Selected;*/
+                flags.DisplayFormat = flagsDisplayStyle.Selected == FlagsDisplayStyle.FlagNames ? flagsDefaultDisplayFormat : (t) => $"{(ulong)t}";
                 menu.Footer = GetInfoString(menu.Choices, flagsDisplayStyle);
             };
+            exit.PostSelectTrigger = (x) => { if (x == Confirm.Yes) menu.StepOut = true; };
             menu.Select();
-            //} while (menu.Selected.Title != "Exit" || (Confirm)menu.Selected.ObjSelected != Confirm.Yes);
         }
     }
 }
