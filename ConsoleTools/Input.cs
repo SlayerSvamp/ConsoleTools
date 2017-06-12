@@ -17,6 +17,7 @@ namespace ConsoleTools
         protected Func<string, T> Converter { get; set; }
         public IInputTool Select()
         {
+            PreSelectTrigger(Selected);
             var input = OutputString;
             T selected;
             while (true)
@@ -24,7 +25,7 @@ namespace ConsoleTools
                 PrintAll();
                 Console.CursorLeft = Indent;
                 Console.CursorTop = ContentCursorTop;
-                System.Windows.Forms.SendKeys.SendWait(OutputString);
+                System.Windows.Forms.SendKeys.SendWait(input);
                 input = Console.ReadLine();
                 try
                 {
@@ -39,6 +40,7 @@ namespace ConsoleTools
             }
             Selected = Converter(input);
             HasError = false;
+            PostSelectTrigger(Selected);
             return this;
         }
         protected override void PrintContent()

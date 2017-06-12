@@ -7,6 +7,13 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
+    public static class InputToolExtensions
+    {
+        public static IInputTool<T> Cast<T>(this IInputTool tool)
+        {
+            return (IInputTool<T>)tool;
+        }
+    }
     public class Selector<T> : InputToolBase<T>, ISelector<T>
     {
         protected int index;
@@ -61,7 +68,9 @@ namespace ConsoleTools
         }
         public ColorWriter SelectedColors { get; set; } = new ColorWriter { ForegroundColor = ConsoleColor.White };
         public Action<T> PreviewTrigger { get; set; } = (t) => { };
-        public bool StepOut { get; set; } = false;
+        public Action<T> CancelTrigger { get; set; } = (t) => { };
+        public bool Cancel { get; set; } = false;
+        public bool IsMenu { get; set; } = false;
         public Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyActionDictionary { get; private set; }
 
         public Selector(IEnumerable<T> choices)
@@ -90,7 +99,7 @@ namespace ConsoleTools
                 }},
                 { ConsoleKey.LeftWindows, (m) => { } },
                 { ConsoleKey.RightWindows, (m) => { } },
-                { ConsoleKey.Escape, (m) => StepOut = true }
+                { ConsoleKey.Escape, (m) => Cancel = true }
             };
             PreviewSelected = Selected;
         }
@@ -118,14 +127,24 @@ namespace ConsoleTools
         }
         protected virtual void PreSelect()
         {
-            StepOut = false;
+            Cancel = false;
+            PreSelectTrigger(Selected);
         }
         public IInputTool Select()
         {
             PreSelect();
-            PreSelectTrigger(Selected);
             while (true)
             {
+                if (Cancel && AllowCancel)
+                {
+                    CancelTrigger(Selected);
+                    if (Cancel && AllowCancel)
+                    {
+
+                        PreviewSelected = Selected;
+                        return this;
+                    }
+                }
                 PrintAll();
                 Console.CursorTop = PreviewIndexCursorPosition;
                 Console.CursorLeft = Indent;
@@ -133,15 +152,14 @@ namespace ConsoleTools
                 if (KeyActionDictionary.TryGetValue(input.Key, out var a))
                 {
                     a(input.Modifiers);
-                    if (StepOut && AllowCancel)
-                    {
-                        PreviewSelected = Selected;
-                        return this;
-                    }
                 }
                 else
                 {
                     PostSelect();
+                    if ((IsMenu && !Cancel) || !AllowCancel)
+                    {
+                        Select();
+                    }
                     return this;
                 }
             }
@@ -153,10 +171,10 @@ namespace ConsoleTools
         {
             base.PostSelect();
             Selected.Select();
-            if(!StepOut) Select();
         }
         public InputToolSelector(IEnumerable<T> choices) : base(choices)
         {
+            IsMenu = true;
             DisplayFormat = (value) => value.Title;
         }
     }
@@ -194,31 +212,28 @@ namespace ConsoleTools
     }
     public static class FlagSelector
     {
-        public static IFlagSelector<T> New<T>() where T : struct, IComparable, IConvertible, IFormattable
+        public static IFlagSelector<T> New<T>(string Title = "", string Header = "", string ErrorMessage = "", string Footer = "") where T : struct, IComparable, IConvertible, IFormattable
         {
-            Type type = Enum.GetUnderlyingType(typeof(T));
-            var typecode = Type.GetTypeCode(type);
+            Type underying = Enum.GetUnderlyingType(typeof(T));
+            var typecode = Type.GetTypeCode(underying);
+            Type type = null;
             switch (typecode)
             {
-                case TypeCode.SByte:
-                    return new SByteFlagSelector<T>();
-                case TypeCode.Byte:
-                    return new ByteFlagSelector<T>();
-                case TypeCode.Int16:
-                    return new Int16FlagSelector<T>();
-                case TypeCode.UInt16:
-                    return new UInt16FlagSelector<T>();
-                case TypeCode.Int32:
-                    return new Int32FlagSelector<T>();
-                case TypeCode.UInt32:
-                    return new UInt32FlagSelector<T>();
-                case TypeCode.Int64:
-                    return new Int64FlagSelector<T>();
-                case TypeCode.UInt64:
-                    return new UInt64FlagSelector<T>();
-                default:
-                    throw new Exception("WTF!?");
+                case TypeCode.SByte: type = typeof(SByteFlagSelector<T>); break;
+                case TypeCode.Byte: type = typeof(ByteFlagSelector<T>); break;
+                case TypeCode.Int16: type = typeof(Int16FlagSelector<T>); break;
+                case TypeCode.UInt16: type = typeof(UInt16FlagSelector<T>); break;
+                case TypeCode.Int32: type = typeof(Int32FlagSelector<T>); break;
+                case TypeCode.UInt32: type = typeof(UInt32FlagSelector<T>); break;
+                case TypeCode.Int64: type = typeof(Int64FlagSelector<T>); break;
+                case TypeCode.UInt64: type = typeof(UInt64FlagSelector<T>); break;
             }
+            var res = (IFlagSelector<T>)Activator.CreateInstance(type);
+            res.Title = Title;
+            res.Header = Header;
+            res.ErrorMessage = ErrorMessage;
+            res.Footer = Footer;
+            return res;
         }
     }
     #region FlagSelectorAlternatives
