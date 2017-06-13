@@ -7,163 +7,236 @@ using ConsoleTools;
 using System.Globalization;
 using System.Windows.Forms;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace ConsoleToolsManualTest
 {
-    class Program
+    enum Confirm : byte { No, Yes }
+    enum Exit : byte { Cancel, SaveAndQuit, Quit }
+    enum Weapon : byte { Sword, Spear, Axe, Mace, Hammer, Flail, Bow, Crossbow, Shuriken, Blowgun, Staff, Wand, Knuckles, Claws }
+    enum Armour : byte { Leather, HardLeather, StuddedLeather, Fur, Platemail, Chainmail, Scalemail, Robes }
+    enum Color : byte { ConsoleFG, ConsoleBG, FooterFG, FooterBG }
+    enum PlayStyle : byte { Killer, Achiever, Socializer, Explorer }
+    [Flags]
+    enum Badges
     {
-        public static IEnumerable<T> EnumEnum<T>() where T : struct, IConvertible
+        BaddarenGrön = 0x1,
+        BaddarenBlå = 0x2,
+        BaddarenGul = 0x4,
+        Sköldpaddan = 0x8,
+        Bläckfisken = 0x10,
+        PingvinenSilver = 0x20,
+        PingvinenGuld = 0x40,
+        Silverfisken = 0x80,
+        Guldfisken = 0x100,
+        Järnmärke = 0x200,
+        Bronsmärke = 0x400,
+        Silvermärke = 0x800,
+        Kandidaten = 0x1000,
+        HajenBrons = 0x2000,
+        HajenSilver = 0x4000,
+        HajenGuld = 0x8000,
+        SimsättsmärkeFjärilsim = 0x10000,
+        SimsättsmärkeRyggsim = 0x20000,
+        SimsättsmärkeBröstsim = 0x40000,
+        SimsättsmärkeCrawl = 0x80000,
+        Vattenprovet = 0x100000,
+        VattenprovetÖppetVatten = 0x200000,
+    }
+    enum Option { Name, Age, Gender, Style, Colors, Weapon, Armour, Badges }
+    class Character
+    {
+        public string Name { get; set; }
+        public int Age { get; set; }
+        public byte Gender { get; set; }
+        public byte Style { get; set; }
+        public Weapon Weapon { get; set; }
+        public Armour Armour { get; set; }
+        public Badges Badges { get; set; }
+
+    }
+    static class Program
+    {
+        static void Init()
         {
-            return Enum.GetValues(typeof(T)).Cast<T>();
+            Console.OutputEncoding = Encoding.Unicode;
+            Console.WindowHeight = 50;
         }
-        enum Confirm : byte { No, Yes }
-        enum Weapon : byte { Sword, Spear, Axe, Mace, Hammer, Flail, Bow, Crossbow, Shuriken, Blowgun, Staff, Wand, Knuckles, Claws }
-        enum Armour : byte { Leather, HardLeather, StuddedLeather, Fur, Platemail, Chainmail, Scalemail, Robes }
-        [Flags]
-        enum Flags : ushort
+
+        static void Load(IDictionary<Option, IInputTool> options, IEnumSelector<Confirm> doLoad = null)
         {
-            First = 1 << 0,
-            Second = 1 << 1,
-            Third = 1 << 2,
-            Fourth = 1 << 3,
-            Fifth = 1 << 4,
-            Sixth = 1 << 5,
-            Seventh = 1 << 6,
-            Eighth = 1 << 7,
-            Ninth = 1 << 8,
-            Tenth = 1 << 9,
-            Eleventh = 1 << 10,
-            Twelvth = 1 << 11,
-            Thirteenth = 1 << 12,
-            Fourteenth = 1 << 13,
-            Fifteenth = 1 << 14,
-            Sixteenth = 1 << 15,
-        }
-        enum FlagsDisplayStyle : byte { FlagNames, UnderlyingValue }
-        [Flags]
-        enum Simmärken
-        {
-            BaddarenGrön = 0x1,
-            BaddarenBlå = 0x2,
-            BaddarenGul = 0x4,
-            Sköldpaddan = 0x8,
-            Bläckfisken = 0x10,
-            PingvinenSilver = 0x20,
-            PingvinenGuld = 0x40,
-            Silverfisken = 0x80,
-            Guldfisken = 0x100,
-            Järnmärke = 0x200,
-            Bronsmärke = 0x400,
-            Silvermärke = 0x800,
-            Kandidaten = 0x1000,
-            HajenBrons = 0x2000,
-            HajenSilver = 0x4000,
-            HajenGuld = 0x8000,
-            SimsättsmärkeFjärilsim = 0x10000,
-            SimsättsmärkeRyggsim = 0x20000,
-            SimsättsmärkeBröstsim = 0x40000,
-            SimsättsmärkeCrawl = 0x80000,
-            Vattenprovet = 0x100000,
-            VattenprovetÖppetVatten = 0x200000,
-        }
-        static string GetInfoString(IEnumerable<IInputTool> menuArray, IEnumSelector<FlagsDisplayStyle> flagsDisplayStyle)
-        {
-            var sb = new StringBuilder();
-            foreach (var line in menuArray)
+            OpenFileDialog dialog;
+            Character loaded = null;
+            if (doLoad == null)
+                doLoad = new EnumSelector<Confirm> { Title = "Load character", Header = "Do you want to load a character? (from file)" };
+            if (doLoad.Select().Cast<Confirm>().Selected == Confirm.Yes)
             {
-                switch (line.Title)
+                dialog = new OpenFileDialog();
+                if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    case "Flags display style":
-                    case "Color":
-                    case "Exit":
-                    case "Console foreground color":
-                    case "Console background color":
-                        break;
-                    default:
-                        sb.Append($"{line.Title}: {line.OutputString}{Environment.NewLine}");
-                        break;
+                    var json = File.ReadAllText(dialog.FileName);
+                    loaded = JsonConvert.DeserializeObject<Character>(json);
+                }
+
+                if (loaded != null)
+                {
+                    Option opt = 0;
+                    try
+                    {
+                        opt = Option.Name;
+                        options[Option.Name].Cast<string>().Selected = loaded.Name;
+                        opt = Option.Age;
+                        options[Option.Age].Cast<int>().Selected = loaded.Age;
+                        opt = Option.Gender;
+                        (options[Option.Gender] as ISelector).Index = loaded.Gender;
+                        opt = Option.Style;
+                        (options[Option.Style] as ISelector).Index = loaded.Style;
+                        opt = Option.Weapon;
+                        options[Option.Weapon].Cast<Weapon>().Selected = loaded.Weapon;
+                        opt = Option.Armour;
+                        options[Option.Armour].Cast<Armour>().Selected = loaded.Armour;
+                        opt = Option.Badges;
+                        options[Option.Badges].Cast<Badges>().Selected = loaded.Badges;
+                    }
+                    catch (ArgumentException)
+                    {
+                        doLoad.ErrorMessage = $"Data '{opt}' was corrupted in {dialog.FileName}.";
+                        doLoad.HasError = true;
+                        Load(options, doLoad);
+                    }
                 }
             }
-            return sb.ToString();
-
         }
-        public static ulong GetMaxValue<T>()
+        static Selector<PlayStyle> GeneratePlayStyleSelector()
         {
-            return Enum.GetValues(typeof(Flags)).Cast<T>().Select(t => Convert.ToUInt64(t)).Aggregate((a, b) => a | b);
+
+            var sel = new EnumSelector<PlayStyle>
+            {
+                Title = "Play style",
+                Header = "Choose your playstyle",
+                DisplayFormat = (style) =>
+                {
+                    switch (style)
+                    {
+
+                        case PlayStyle.Killer: return "♣ - Killer";
+                        case PlayStyle.Achiever: return "♦ - Achiever";
+                        case PlayStyle.Socializer: return "♥ - Socializer";
+                        case PlayStyle.Explorer: return "♠ - Explorer";
+                        default: return "";
+                    }
+                }
+            };
+
+            sel.PreviewTrigger = (s) =>
+            {
+                switch (s)
+                {
+                    case PlayStyle.Killer:
+                        sel.Footer = "Clubs (Killers) (♣) enjoy competition and take pleasure in causing physical destruction in the virtual environment."; break;
+                    case PlayStyle.Achiever:
+                        sel.Footer = "Diamonds(Achievers) (♦) enjoy gaining points, levels, or any physical measure of their in-game achievement."; break;
+                    case PlayStyle.Socializer:
+                        sel.Footer = "Hearts(Socializers) (♥) enjoy playing games for the social aspect or by interacting with other players."; break;
+                    case PlayStyle.Explorer:
+                        sel.Footer = "Spades(Explorers) (♠) enjoy digging around, discovering new areas, or learning about easter eggs or glitches in the game."; break;
+                    default: break;
+                }
+            };
+            return sel;
         }
+        static IDictionary<Option, IInputTool> GenerateOptions(IDictionary<Color, IEnumSelector<ConsoleColor>> colors)
+        {
+            int minAge = 1;
+            int maxAge = 200;
+            return new Dictionary<Option, IInputTool> {
+                { Option.Name, new RegexInput(@"^[a-zA-Z0-9 ,]+$") { Title = "Name", Header = "What is your name?", ErrorMessage = $"Must be alphanumeric, comma ',' or space ' '" } },
+                { Option.Age, new IntegerInput((val) => val >= minAge && val <= maxAge) { Title = "Age", Header = "How old are you?", ErrorMessage = $"Must be in range {minAge}-{maxAge}", Footer = "Limpistol för lösa tånaglar" } },
+                { Option.Gender, new Selector<string>(new string[] { "♂ - Male", "♀ - Female", "o - Other" }) { Title = "Gender", Header = "What's your gender?" } },
+                { Option.Style, GeneratePlayStyleSelector()},
+                { Option.Colors, new InputToolSelector<IEnumSelector<ConsoleColor>>(colors.Values) { Title = "Colors", Footer = "Footer preview text" } },
+                { Option.Weapon, new EnumSelector<Weapon> { Title = "Weapon", Header = "Choose your prefered weapon" } },
+                { Option.Armour, new EnumSelector<Armour> { Title = "Armour", Header = "Choose prefered armour" } },
+                { Option.Badges, FlagSelector.New<Badges>(Title: "Simmärken", Header: "Vilka simmärken har du tagit?") }
+            };
+        }
+        static IDictionary<Color, IEnumSelector<ConsoleColor>> GenerateColorMenuItems()
+        {
+            return new Dictionary<Color, IEnumSelector<ConsoleColor>>
+            {
+                { Color.FooterFG, new EnumSelector<ConsoleColor> { Title = "Foreground color", Header = "Choose main menu footer foreground color", Footer = "Footer preview text", Selected = ConsoleColor.DarkGray } },
+                { Color.FooterBG, new EnumSelector<ConsoleColor> { Title = "Background color", Header = "Choose main menu footer background color", Footer = "Footer preview text" } },
+                { Color.ConsoleFG, new EnumSelector<ConsoleColor> { Title = "Console foreground color", Header = "Choose default foreground color for the program", Selected = ConsoleColor.Gray, PreviewTrigger = (x) => Console.ForegroundColor = x, CancelTrigger = (x) => Console.ForegroundColor = x } },
+                { Color.ConsoleBG, new EnumSelector<ConsoleColor> { Title = "Console background color", Header = "Choose default background color for the program", Selected = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x, CancelTrigger = (x) => Console.BackgroundColor = x } }
+            };
+        }
+        static void Finalize(IInputToolSelector menu, IDictionary<Option, IInputTool> options, IDictionary<Color, IEnumSelector<ConsoleColor>> colors)
+        {
+            options[Option.Colors].FooterColors = menu.FooterColors;
+
+            colors[Color.FooterFG].PreviewTrigger = (x) => options[Option.Colors].FooterColors.ForegroundColor = x;
+            colors[Color.FooterBG].PreviewTrigger = (x) => options[Option.Colors].FooterColors.BackgroundColor = x;
+
+            options[Option.Badges].FooterColors.ForegroundColor = ConsoleColor.DarkMagenta;
+            colors[Color.FooterFG].FooterColors = menu.FooterColors;
+            colors[Color.FooterBG].FooterColors = menu.FooterColors;
+
+            //badges
+            var badges = (IFlagSelector<Badges>)options[Option.Badges];
+            badges.AfterToggle = (x) => badges.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", badges.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
+            badges.AfterToggle(badges.PreviewSelected);
+            badges.SelectedColors.BackgroundColor = ConsoleColor.DarkRed;
+            badges.SelectedColors.ForegroundColor = ConsoleColor.Black;
+        }
+        static string GetInfoString(IDictionary<Option, IInputTool> options)
+        {
+            var rows = options.Where(o => o.Key != Option.Colors)
+                              .Select(o => $"{o.Value.Title}: {o.Value.OutputString}{Environment.NewLine}");
+            return string.Concat(rows);
+        }
+        static void Save(IDictionary<Option, IInputTool> options)
+        {
+            var dialog = new SaveFileDialog();
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                var json = JsonConvert.SerializeObject(new
+                {
+                    Name = options[Option.Name].Cast<string>().Selected,
+                    Age = options[Option.Age].Cast<int>().Selected,
+                    Gender = (byte)(options[Option.Gender] as ISelector).Index,
+                    Style = (byte)(options[Option.Style] as ISelector).Index,
+                    Weapon = options[Option.Weapon].Cast<Weapon>().Selected,
+                    Armour = options[Option.Armour].Cast<Armour>().Selected,
+                    Badges = options[Option.Badges].Cast<Badges>().Selected
+                });
+
+                File.WriteAllText(dialog.FileName, json);
+            }
+        }
+
         [STAThread]
         static void Main(string[] args)
         {
+            Init();
+            var colors = GenerateColorMenuItems();
+            var options = GenerateOptions(colors);
+            var menu = new InputToolSelector<IInputTool>(options.Values) { Title = "Main menu", Header = "Main menu" };
+            Finalize(menu, options, colors);
+            Load(options);
 
-            var doLoad = new EnumSelector<Confirm> { Title = "Load character", Header = "Do you want to load a character? (from file)" };
-            if ((Confirm)doLoad.Select().ObjSelected == Confirm.Yes)
+            menu.PreSelectTrigger = (x) => menu.Footer = GetInfoString(options);
+            var exit = new EnumSelector<Exit> { Header = "Exiting character creation" };
+            Func<string> saveHeader = () => $"Do you want to save '{options[Option.Name].Cast<string>().Selected}'?";
+            var save = new EnumSelector<Confirm>() { Header = saveHeader() };
+            save.PostSelectTrigger = (x) => { if (x == Confirm.Yes) Save(options); };
+            menu.KeyActionDictionary[ConsoleKey.S] = (m) => save.Select();
+            menu.CancelTrigger = (x) =>
             {
-                string[] lines;
-                var dialog = new OpenFileDialog();
-                if (dialog.ShowDialog() == DialogResult.OK)
-                {
-                    lines = File.ReadAllLines(dialog.FileName);
-                }
-            }
-            Console.OutputEncoding = Encoding.Unicode;
-            Console.WindowHeight = 30;
-            int minAge = 1;
-            int maxAge = 200;
-            EnumSelector<ConsoleColor> fcolor;
-            EnumSelector<ConsoleColor> bcolor;
-            EnumSelector<ConsoleColor> cfg;
-            EnumSelector<ConsoleColor> cbg;
-            InputToolSelector<IEnumSelector<ConsoleColor>> colors = null;
-            EnumSelector<FlagsDisplayStyle> flagsDisplayStyle;
-            ulong flagsMaxValue = GetMaxValue<Flags>();
-            IFlagSelector<Flags> flags;
-            IFlagSelector<Simmärken> sim;
-
-            var colorsArray = new IEnumSelector<ConsoleColor>[]
-            {
-                fcolor = new EnumSelector<ConsoleColor>{ Title = "Foreground color", Header = "Choose main menu footer foreground color", Footer = "Footer preview text", Selected = ConsoleColor.DarkGray, PreviewTrigger = (x) =>  colors.FooterColors.ForegroundColor = x },
-                bcolor = new EnumSelector<ConsoleColor>{ Title = "Background color", Header = "Choose main menu footer background color", Footer = "Footer preview text", PreviewTrigger = (x) =>  colors.FooterColors.BackgroundColor = x },
-                cfg = new EnumSelector<ConsoleColor>{ Title = "Console foreground color", Header = "Choose default foreground color for the program", Selected = ConsoleColor.Gray, PreviewTrigger = (x) => Console.ForegroundColor = x, CancelTrigger = (x) => Console.ForegroundColor = x },
-                cbg = new EnumSelector<ConsoleColor>{ Title = "Console background color", Header = "Choose default background color for the program", Selected = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x, CancelTrigger = (x) => Console.BackgroundColor = x },
+                exit.Select();
+                menu.Cancel = exit.Selected != Exit.Cancel;
+                if (exit.Selected == Exit.SaveAndQuit)
+                    Save(options);
             };
-            var menuArray = new IInputTool[] {
-                new RegexInput( @"^[a-zA-Z0-9 ,]+$"){ Title = "Name", Header = "What is your name?", ErrorMessage = $"Must be alphanumeric, comma ',' or space ' '" },
-                new IntegerInput((val) => val >= minAge && val <= maxAge) { Title = "Age", Header = "How old are you?", ErrorMessage = $"Must be in range {minAge}-{maxAge}" , Footer = "Limpistol för lösa tånaglar" },
-                new Selector<string>(new string[] { "♂ - Male", "♀ - Female", "o - Other" }) {Title = "Gender", Header = "What's your gender?" },
-                new Selector<string>(new string[] { "♣ - Killer", "♦ - Achiever", "♥ - Socializer", "♠ - Explorer" }){ Title = "Play style", Header = "Choose your playstyle" },
-                colors = new InputToolSelector<IEnumSelector<ConsoleColor>>(colorsArray){ Title = "Colors", Footer = "Footer preview text" },
-                new EnumSelector<Weapon>{ Title = "Weapon", Header = "Choose your prefered weapon" },
-                new EnumSelector<Armour>{ Title = "Armour", Header  = "Choose prefered armour" },
-                sim = FlagSelector.New<Simmärken>(Title : "Simmärken", Header : "Vilka simmärken har du tagit?"),
-                flags = FlagSelector.New<Flags>(Title : "Flags", Header : $"Choose int -> get flags (0-{flagsMaxValue})"),
-                flagsDisplayStyle = new EnumSelector<FlagsDisplayStyle> { Title = "Flags display style", Header = "Display flags as:" },
-            };
-            sim.FooterColors.ForegroundColor = ConsoleColor.DarkMagenta;
-            var menu = new InputToolSelector<IInputTool>(menuArray) { Title = "Main menu", Header = "Main menu" };
-            colors.FooterColors = menu.FooterColors;
-            fcolor.FooterColors = menu.FooterColors;
-            bcolor.FooterColors = menu.FooterColors;
-
-            foreach (var tool in new IEnumerable<IInputTool>[] { menu.Choices, new IInputTool[] { menu } }.SelectMany(x => x))
-            {
-                if (typeof(ISelector).IsAssignableFrom(tool.GetType()))
-                {
-                    (tool as ISelector).SelectedColors.ForegroundColor = ConsoleColor.Green;
-                }
-            }
-            sim.AfterToggle = (x) => sim.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", sim.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
-            sim.AfterToggle(sim.PreviewSelected);
-            sim.SelectedColors.BackgroundColor = ConsoleColor.DarkRed;
-            sim.SelectedColors.ForegroundColor = ConsoleColor.Black;
-            var flagsDefaultDisplayFormat = flags.DisplayFormat;
-            Console.WindowHeight += 20;
-            menu.PreSelectTrigger = (x) =>
-            {
-                flags.DisplayFormat = flagsDisplayStyle.Selected == FlagsDisplayStyle.FlagNames ? flagsDefaultDisplayFormat : (t) => $"{(ulong)t}";
-                menu.Footer = GetInfoString(menu.Choices, flagsDisplayStyle);
-            };
-            var exit = new EnumSelector<Confirm> { Header = "Do you really want to exit?" };
-            menu.CancelTrigger = (x) => menu.Cancel = exit.Select().Cast<Confirm>().Selected == Confirm.Yes;
             menu.Select();
         }
     }

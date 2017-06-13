@@ -9,7 +9,7 @@ using ConsoleTools;
 namespace TextfileMenu
 {
     enum Confirm { No, Yes }
-    class Program
+    static class Program
     {
         static void Main(string[] args)
         {

@@ -7,13 +7,6 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
-    public static class InputToolExtensions
-    {
-        public static IInputTool<T> Cast<T>(this IInputTool tool)
-        {
-            return (IInputTool<T>)tool;
-        }
-    }
     public class Selector<T> : InputToolBase<T>, ISelector<T>
     {
         protected int index;
@@ -29,6 +22,10 @@ namespace ConsoleTools
                 {
                     Index = newIndex;
                 }
+                else
+                {
+                    throw new ArgumentException($"Value '{value}' does not exist in given ISelector list");
+                }
             }
         }
         public virtual T PreviewSelected
@@ -41,9 +38,13 @@ namespace ConsoleTools
                 {
                     PreviewIndex = newIndex;
                 }
+                else
+                {
+                    throw new ArgumentException("Value does not exist in given ISelector list");
+                }
             }
         }
-        public List<T> Choices { get; private set; } = null;
+        public List<T> Choices { get; private set; }
         public int IndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < Index).Sum(); } }
         public int PreviewIndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < PreviewIndex).Sum(); } }
         public int Index
@@ -130,7 +131,7 @@ namespace ConsoleTools
             Cancel = false;
             PreSelectTrigger(Selected);
         }
-        public IInputTool Select()
+        public override IInputTool Select()
         {
             PreSelect();
             while (true)
@@ -140,7 +141,6 @@ namespace ConsoleTools
                     CancelTrigger(Selected);
                     if (Cancel && AllowCancel)
                     {
-
                         PreviewSelected = Selected;
                         return this;
                     }
@@ -195,7 +195,7 @@ namespace ConsoleTools
         public U PreviewTotalFlagValue { get; protected set; }
         public override T Selected { get { return (T)(dynamic)TotalFlagValue; } set { TotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
         public override T PreviewSelected { get { return (T)(dynamic)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
-        public FlagSelectorBase()
+        protected FlagSelectorBase()
         {
             KeyActionDictionary.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewSelected); });
         }

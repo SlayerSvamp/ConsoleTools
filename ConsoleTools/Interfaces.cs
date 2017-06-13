@@ -16,6 +16,7 @@ namespace ConsoleTools
         ColorWriter HeaderColors { get; set; }
         ColorWriter ErrorMessageColors { get; set; }
         ColorWriter FooterColors { get; set; }
+        bool HasError { get; set; }
         string OutputString { get; }
         IInputTool Select();
         object ObjSelected { get; }
@@ -25,6 +26,7 @@ namespace ConsoleTools
         T Selected { get; set; }
         Action<T> PreSelectTrigger { get; set; }
         Action<T> PostSelectTrigger { get; set; }
+        Func<T, string> DisplayFormat { get; set; }
     }
     public interface ITextInput : IInputTool
     {
@@ -36,13 +38,14 @@ namespace ConsoleTools
     public interface ISelector : IInputTool
     {
         ColorWriter SelectedColors { get; set; }
+        int Index { get; set; }
+        int PreviewIndex { get; set; }
     }
     public interface ISelector<T> : ISelector, IInputTool<T>
     {
         T PreviewSelected { get; set; }
         Action<T> PreviewTrigger { get; set; }
         List<T> Choices { get; }
-        Func<T, string> DisplayFormat { get; set; }
     }
     public interface IInputToolSelector : ISelector
     {

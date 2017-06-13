@@ -32,7 +32,7 @@ namespace ConsoleTools
             if (doBG) Console.BackgroundColor = bg;
         }
     }
-    abstract public class InputToolBase<T>
+    abstract public class InputToolBase<T> : IInputTool<T>
     {
         protected IEnumerable<string> ContentParts { get; set; }
         protected int ContentCursorTop { get; set; }
@@ -65,12 +65,11 @@ namespace ConsoleTools
         public ColorWriter HeaderColors { get; set; } = new ColorWriter();
         public ColorWriter FooterColors { get; set; } = new ColorWriter();
         public ColorWriter ErrorMessageColors { get; set; } = new ColorWriter { ForegroundColor = ConsoleColor.Red };
-        protected bool HasError { get; set; } = false;
+        public bool HasError { get; set; } = false;
         public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
         public string OutputString { get { return Selected != null ? DisplayFormat(Selected) : string.Empty; } }
         public Action<T> PreSelectTrigger { get; set; } = (t) => { };
         public Action<T> PostSelectTrigger { get; set; } = (t) => { };
-
         protected IEnumerable<string> GetPrintLines(string value)
         {
             var lines = value.Split('\n').Select(s => s.TrimEnd());
@@ -108,6 +107,7 @@ namespace ConsoleTools
         {
             if (HasError) PrintSegment(ErrorMessageColors, ErrorMessage);
         }
+        public abstract IInputTool Select();
         protected abstract void PrintContent();
         protected void PrintFooter()
         {

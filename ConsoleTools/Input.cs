@@ -15,7 +15,7 @@ namespace ConsoleTools
     {
         protected Func<T, bool> Predicate { get; set; }
         protected Func<string, T> Converter { get; set; }
-        public IInputTool Select()
+        public override IInputTool Select()
         {
             PreSelectTrigger(Selected);
             var input = OutputString;
