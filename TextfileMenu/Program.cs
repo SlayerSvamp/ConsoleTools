@@ -8,6 +8,27 @@ using ConsoleTools;
 
 namespace TextfileMenu
 {
+    class Directory
+    {
+        public string Name { get; set; }
+        public IEnumerable<Directory> Directories { get; set; }
+        public IEnumerable<File> Files { get; set; }
+    }
+    class File
+    {
+        private string[] content;
+        public string Name { get; set; }
+        public string[] Content
+        {
+            get
+            {
+                if (content == null)
+                    System.IO.File.ReadAllLines();
+                return content;
+            }
+            set { content = value; }
+        }
+    }
     enum Confirm { No, Yes }
     static class Program
     {
@@ -48,7 +69,7 @@ namespace TextfileMenu
             sel.PreSelectTrigger = (x) => { sel.Index++; sel.Cancel = true; };
             sel.CancelTrigger = (x) => { sel.Title = $"BGColor: {sel.OutputString}"; Console.BackgroundColor = x; };
             var menu = new InputToolSelector<IInputTool<string>>(fSels);
-            menu.KeyActionDictionary[ConsoleKey.C] = (m) => sel.Select();
+            menu.KeyPressActions[ConsoleKey.C] = (m) => sel.Select();
             var quit = new EnumSelector<Confirm> { Header = "Do you really want to quit?" };
             menu.CancelTrigger = (x) => menu.Cancel = quit.Select().Cast<Confirm>().Selected.Equals(Confirm.Yes);
             menu.Select();

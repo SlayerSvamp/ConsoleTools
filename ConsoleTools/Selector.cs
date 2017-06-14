@@ -45,6 +45,7 @@ namespace ConsoleTools
             }
         }
         public List<T> Choices { get; private set; }
+        public IEnumerable<object> ObjChoices { get { return Choices.Cast<object>(); } }
         public int IndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < Index).Sum(); } }
         public int PreviewIndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < PreviewIndex).Sum(); } }
         public int Index
@@ -67,12 +68,11 @@ namespace ConsoleTools
                 previewIndex %= Choices.Count;
             }
         }
-        public ColorWriter SelectedColors { get; set; } = new ColorWriter { ForegroundColor = ConsoleColor.White };
         public Action<T> PreviewTrigger { get; set; } = (t) => { };
         public Action<T> CancelTrigger { get; set; } = (t) => { };
         public bool Cancel { get; set; } = false;
         public bool IsMenu { get; set; } = false;
-        public Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyActionDictionary { get; private set; }
+        public Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyPressActions { get; private set; }
 
         public Selector(IEnumerable<T> choices)
         {
@@ -85,7 +85,7 @@ namespace ConsoleTools
             var gHeader = $"Go to index (0-{Choices.Count - 1}):";
             var gErrorMessage = $"Index must be between 0 and {Choices.Count - 1}!";
             var gFooter = string.Join("\n", Choices.Select((s, i) => $"{i}: {DisplayFormat(s)}"));
-            KeyActionDictionary = new Dictionary<ConsoleKey, Action<ConsoleModifiers>>
+            KeyPressActions = new Dictionary<ConsoleKey, Action<ConsoleModifiers>>
             {
                 { ConsoleKey.UpArrow,(m) => {PreviewIndex--; PreviewTrigger(PreviewSelected); } },
                 { ConsoleKey.DownArrow, (m) => {PreviewIndex++; PreviewTrigger(PreviewSelected); } },
@@ -115,7 +115,7 @@ namespace ConsoleTools
             {
                 bool isActive = Choices[PreviewIndex].Equals(choice);
                 var value = $"{(isActive ? ">" : " ")}{FormatChoice(choice)}";
-                var colors = isActive ? SelectedColors : new ColorWriter();
+                var colors = isActive ? InputColors : new Splash();
                 PrintSegment(colors, value, false);
                 Console.CursorTop--;
             }
@@ -149,7 +149,7 @@ namespace ConsoleTools
                 Console.CursorTop = PreviewIndexCursorPosition;
                 Console.CursorLeft = Indent;
                 var input = Console.ReadKey(true);
-                if (KeyActionDictionary.TryGetValue(input.Key, out var a))
+                if (KeyPressActions.TryGetValue(input.Key, out var a))
                 {
                     a(input.Modifiers);
                 }
@@ -197,7 +197,7 @@ namespace ConsoleTools
         public override T PreviewSelected { get { return (T)(dynamic)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
         protected FlagSelectorBase()
         {
-            KeyActionDictionary.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewSelected); });
+            KeyPressActions.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewSelected); });
         }
 
         protected bool IsSelected(T value)

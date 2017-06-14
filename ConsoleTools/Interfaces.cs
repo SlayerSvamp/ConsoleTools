@@ -12,10 +12,10 @@ namespace ConsoleTools
         string Header { get; set; }
         string ErrorMessage { get; set; }
         string Footer { get; set; }
-        ColorWriter TitleColors { get; set; }
-        ColorWriter HeaderColors { get; set; }
-        ColorWriter ErrorMessageColors { get; set; }
-        ColorWriter FooterColors { get; set; }
+        Splash HeaderColors { get; set; }
+        Splash ErrorMessageColors { get; set; }
+        Splash InputColors { get; set; }
+        Splash FooterColors { get; set; }
         bool HasError { get; set; }
         string OutputString { get; }
         IInputTool Select();
@@ -37,7 +37,8 @@ namespace ConsoleTools
     }
     public interface ISelector : IInputTool
     {
-        ColorWriter SelectedColors { get; set; }
+        Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyPressActions { get; }
+        IEnumerable<object> ObjChoices { get; }
         int Index { get; set; }
         int PreviewIndex { get; set; }
     }
@@ -45,11 +46,11 @@ namespace ConsoleTools
     {
         T PreviewSelected { get; set; }
         Action<T> PreviewTrigger { get; set; }
+        Action<T> CancelTrigger { get; set; }
         List<T> Choices { get; }
     }
     public interface IInputToolSelector : ISelector
     {
-
     }
     public interface IInputToolSelector<T> : IInputToolSelector, ISelector<T> where T : IInputTool
     {

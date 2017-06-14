@@ -15,7 +15,14 @@ namespace ConsoleToolsManualTest
     enum Exit : byte { Cancel, SaveAndQuit, Quit }
     enum Weapon : byte { Sword, Spear, Axe, Mace, Hammer, Flail, Bow, Crossbow, Shuriken, Blowgun, Staff, Wand, Knuckles, Claws }
     enum Armour : byte { Leather, HardLeather, StuddedLeather, Fur, Platemail, Chainmail, Scalemail, Robes }
-    enum Color : byte { ConsoleFG, ConsoleBG, FooterFG, FooterBG }
+    enum Color : byte
+    {
+        ConsoleFG, ConsoleBG, FooterFG, FooterBG,
+        SelectedFG,
+        SelectedBG,
+        HeaderBG,
+        HeaderFG
+    }
     enum PlayStyle : byte { Killer, Achiever, Socializer, Explorer }
     [Flags]
     enum Badges
@@ -143,6 +150,7 @@ namespace ConsoleToolsManualTest
                     default: break;
                 }
             };
+            sel.PreSelectTrigger = sel.PreviewTrigger;
             return sel;
         }
         static IDictionary<Option, IInputTool> GenerateOptions(IDictionary<Color, IEnumSelector<ConsoleColor>> colors)
@@ -150,11 +158,11 @@ namespace ConsoleToolsManualTest
             int minAge = 1;
             int maxAge = 200;
             return new Dictionary<Option, IInputTool> {
-                { Option.Name, new RegexInput(@"^[a-zA-Z0-9 ,]+$") { Title = "Name", Header = "What is your name?", ErrorMessage = $"Must be alphanumeric, comma ',' or space ' '" } },
+                { Option.Name, new RegexInput(@"^[a-zA-ZåäöÅÄÖ0-9 ,.!?]+$") { Title = "Name", Header = "What is your name?", ErrorMessage = $"Must be alphanumeric, comma ',' or space ' '" } },
                 { Option.Age, new IntegerInput((val) => val >= minAge && val <= maxAge) { Title = "Age", Header = "How old are you?", ErrorMessage = $"Must be in range {minAge}-{maxAge}", Footer = "Limpistol för lösa tånaglar" } },
                 { Option.Gender, new Selector<string>(new string[] { "♂ - Male", "♀ - Female", "o - Other" }) { Title = "Gender", Header = "What's your gender?" } },
                 { Option.Style, GeneratePlayStyleSelector()},
-                { Option.Colors, new InputToolSelector<IEnumSelector<ConsoleColor>>(colors.Values) { Title = "Colors", Footer = "Footer preview text" } },
+                { Option.Colors, new InputToolSelector<IEnumSelector<ConsoleColor>>(colors.Values) { Title = "Colors",Header = "Colors", Footer = "Footer preview text" } },
                 { Option.Weapon, new EnumSelector<Weapon> { Title = "Weapon", Header = "Choose your prefered weapon" } },
                 { Option.Armour, new EnumSelector<Armour> { Title = "Armour", Header = "Choose prefered armour" } },
                 { Option.Badges, FlagSelector.New<Badges>(Title: "Simmärken", Header: "Vilka simmärken har du tagit?") }
@@ -164,29 +172,52 @@ namespace ConsoleToolsManualTest
         {
             return new Dictionary<Color, IEnumSelector<ConsoleColor>>
             {
-                { Color.FooterFG, new EnumSelector<ConsoleColor> { Title = "Foreground color", Header = "Choose main menu footer foreground color", Footer = "Footer preview text", Selected = ConsoleColor.DarkGray } },
-                { Color.FooterBG, new EnumSelector<ConsoleColor> { Title = "Background color", Header = "Choose main menu footer background color", Footer = "Footer preview text" } },
                 { Color.ConsoleFG, new EnumSelector<ConsoleColor> { Title = "Console foreground color", Header = "Choose default foreground color for the program", Selected = ConsoleColor.Gray, PreviewTrigger = (x) => Console.ForegroundColor = x, CancelTrigger = (x) => Console.ForegroundColor = x } },
-                { Color.ConsoleBG, new EnumSelector<ConsoleColor> { Title = "Console background color", Header = "Choose default background color for the program", Selected = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x, CancelTrigger = (x) => Console.BackgroundColor = x } }
+                { Color.ConsoleBG, new EnumSelector<ConsoleColor> { Title = "Console background color", Header = "Choose default background color for the program", Selected = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x, CancelTrigger = (x) => Console.BackgroundColor = x } },
+                { Color.HeaderFG, new EnumSelector<ConsoleColor> { Title = "Header foreground color", Header = "Choose header foreground color" } },
+                { Color.HeaderBG, new EnumSelector<ConsoleColor> { Title = "Header background color", Header = "Choose header background color"} },
+                { Color.SelectedFG, new EnumSelector<ConsoleColor> { Title = "Selection foreground color", Header = "Choose selected foreground color"} },
+                { Color.SelectedBG, new EnumSelector<ConsoleColor> { Title = "Selection background color", Header = "Choose selected background color" } },
+                { Color.FooterFG, new EnumSelector<ConsoleColor> { Title = "Footer foreground color", Header = "Choose main menu footer foreground color" } },
+                { Color.FooterBG, new EnumSelector<ConsoleColor> { Title = "Footer background color", Header = "Choose main menu footer background color" } },
             };
         }
         static void Finalize(IInputToolSelector menu, IDictionary<Option, IInputTool> options, IDictionary<Color, IEnumSelector<ConsoleColor>> colors)
         {
-            options[Option.Colors].FooterColors = menu.FooterColors;
+            //assign 
+            menu.ActUponInputToolTree(x => x.HeaderColors = menu.HeaderColors);
+            menu.ActUponInputToolTree(x => x.InputColors = menu.InputColors);
+            menu.ActUponInputToolTree(x => x.FooterColors = menu.FooterColors);
+            options[Option.Colors].ActUponInputToolTree(x => x.Footer = "Footer preview text!");
+            foreach (var c in (options[Option.Colors] as ISelector<IEnumSelector<ConsoleColor>>).Choices.Skip(2))
+            {
+                c.Choices.Add((ConsoleColor)(-1));
+                c.DisplayFormat = (color) =>
+                {
+                    if (color == (ConsoleColor)(-1))
+                        return "Reset";
+                    return color.ToString();
+                };
+            }
 
-            colors[Color.FooterFG].PreviewTrigger = (x) => options[Option.Colors].FooterColors.ForegroundColor = x;
-            colors[Color.FooterBG].PreviewTrigger = (x) => options[Option.Colors].FooterColors.BackgroundColor = x;
+            colors[Color.HeaderFG].PreviewTrigger = (x) => menu.HeaderColors.ForegroundColor = x;
+            colors[Color.HeaderBG].PreviewTrigger = (x) => menu.HeaderColors.BackgroundColor = x;
+            colors[Color.SelectedFG].PreviewTrigger = (x) => menu.InputColors.ForegroundColor = x;
+            colors[Color.SelectedBG].PreviewTrigger = (x) => menu.InputColors.BackgroundColor = x;
+            colors[Color.FooterFG].PreviewTrigger = (x) => menu.FooterColors.ForegroundColor = x;
+            colors[Color.FooterBG].PreviewTrigger = (x) => menu.FooterColors.BackgroundColor = x;
 
-            options[Option.Badges].FooterColors.ForegroundColor = ConsoleColor.DarkMagenta;
-            colors[Color.FooterFG].FooterColors = menu.FooterColors;
-            colors[Color.FooterBG].FooterColors = menu.FooterColors;
+            colors[Color.HeaderFG].CancelTrigger = (x) => menu.HeaderColors.ForegroundColor = x;
+            colors[Color.HeaderBG].CancelTrigger = (x) => menu.HeaderColors.BackgroundColor = x;
+            colors[Color.SelectedFG].CancelTrigger = (x) => menu.InputColors.ForegroundColor = x;
+            colors[Color.SelectedBG].CancelTrigger = (x) => menu.InputColors.BackgroundColor = x;
+            colors[Color.FooterFG].CancelTrigger = (x) => menu.FooterColors.ForegroundColor = x;
+            colors[Color.FooterBG].CancelTrigger = (x) => menu.FooterColors.BackgroundColor = x;
 
             //badges
             var badges = (IFlagSelector<Badges>)options[Option.Badges];
             badges.AfterToggle = (x) => badges.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", badges.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
             badges.AfterToggle(badges.PreviewSelected);
-            badges.SelectedColors.BackgroundColor = ConsoleColor.DarkRed;
-            badges.SelectedColors.ForegroundColor = ConsoleColor.Black;
         }
         static string GetInfoString(IDictionary<Option, IInputTool> options)
         {
@@ -229,7 +260,8 @@ namespace ConsoleToolsManualTest
             Func<string> saveHeader = () => $"Do you want to save '{options[Option.Name].Cast<string>().Selected}'?";
             var save = new EnumSelector<Confirm>() { Header = saveHeader() };
             save.PostSelectTrigger = (x) => { if (x == Confirm.Yes) Save(options); };
-            menu.KeyActionDictionary[ConsoleKey.S] = (m) => save.Select();
+            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.S] = (m) => save.Select()));
+            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.C] = (m) => options[Option.Colors].Select()));
             menu.CancelTrigger = (x) =>
             {
                 exit.Select();
@@ -239,5 +271,8 @@ namespace ConsoleToolsManualTest
             };
             menu.Select();
         }
+    }
+    public static class Extensions
+    {
     }
 }

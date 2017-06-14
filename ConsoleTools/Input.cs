@@ -25,8 +25,11 @@ namespace ConsoleTools
                 PrintAll();
                 Console.CursorLeft = Indent;
                 Console.CursorTop = ContentCursorTop;
-                System.Windows.Forms.SendKeys.SendWait(input);
-                input = Console.ReadLine();
+                InputColors.Act(() =>
+                {
+                    System.Windows.Forms.SendKeys.SendWait(input);
+                    input = Console.ReadLine();
+                });
                 try
                 {
                     selected = Converter(input);

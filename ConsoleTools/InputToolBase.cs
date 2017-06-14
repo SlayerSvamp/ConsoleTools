@@ -6,15 +6,30 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
-    public class ColorWriter
+    public class Splash
     {
+        public static Action<string> Writer { get; set; } = Console.Write;
         public ConsoleColor ForegroundColor { get; set; } = (ConsoleColor)(-1);
         public ConsoleColor BackgroundColor { get; set; } = (ConsoleColor)(-1);
+        public bool HasFColor
+        {
+            get { return Enum.IsDefined(typeof(ConsoleColor), ForegroundColor); }
+            set { ForegroundColor = (value) ? Console.ForegroundColor : (ConsoleColor)(-1); }
+        }
+        public bool HasBColor
+        {
+            get { return Enum.IsDefined(typeof(ConsoleColor), BackgroundColor); }
+            set { BackgroundColor = (value) ? Console.BackgroundColor : (ConsoleColor)(-1); }
+        }
         public void Write(string value)
+        {
+            Act(() => Writer(value));
+        }
+        public void Act(Action act)
         {
             if ((int)ForegroundColor == -1 && (int)BackgroundColor == -1)
             {
-                Console.Write(value);
+                act();
                 return;
             }
             var fg = Console.ForegroundColor;
@@ -26,7 +41,7 @@ namespace ConsoleTools
             if (doFG) Console.ForegroundColor = ForegroundColor;
             if (doBG) Console.BackgroundColor = BackgroundColor;
 
-            Console.Write(value);
+            act();
 
             if (doFG) Console.ForegroundColor = fg;
             if (doBG) Console.BackgroundColor = bg;
@@ -61,10 +76,10 @@ namespace ConsoleTools
         public string Header { get; set; } = "";
         public string Footer { get; set; } = "";
         public string ErrorMessage { get; set; } = "";
-        public ColorWriter TitleColors { get; set; } = new ColorWriter();
-        public ColorWriter HeaderColors { get; set; } = new ColorWriter();
-        public ColorWriter FooterColors { get; set; } = new ColorWriter();
-        public ColorWriter ErrorMessageColors { get; set; } = new ColorWriter { ForegroundColor = ConsoleColor.Red };
+        public Splash HeaderColors { get; set; } = new Splash();
+        public Splash ErrorMessageColors { get; set; } = new Splash { ForegroundColor = ConsoleColor.Red };
+        public Splash InputColors { get; set; } = new Splash { ForegroundColor = ConsoleColor.White };
+        public Splash FooterColors { get; set; } = new Splash();
         public bool HasError { get; set; } = false;
         public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
         public string OutputString { get { return Selected != null ? DisplayFormat(Selected) : string.Empty; } }
@@ -85,7 +100,7 @@ namespace ConsoleTools
                 }
             }
         }
-        protected int PrintSegment(ColorWriter colors, string value, bool padded = true)
+        protected int PrintSegment(Splash colors, string value, bool padded = true)
         {
             if (value.Length == 0) return 0;
             var lines = GetPrintLines(value).ToList();
