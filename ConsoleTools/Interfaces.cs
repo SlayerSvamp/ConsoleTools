@@ -17,8 +17,8 @@ namespace ConsoleTools
         Splash InputColors { get; set; }
         Splash FooterColors { get; set; }
         bool HasError { get; set; }
-        string OutputString { get; }
         IInputTool Select();
+        string OutputString { get; }
         object ObjSelected { get; }
     }
     public interface IInputTool<T> : IInputTool
