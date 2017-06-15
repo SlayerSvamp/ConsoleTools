@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ConsoleTools;
+using System.Windows.Forms;
 
 namespace TextfileMenu
 {
@@ -14,7 +15,16 @@ namespace TextfileMenu
     }
     class Directory : IDirectoryItem
     {
-        public string Title { get { return Path.Substring(Path.LastIndexOf("\\") + 1); } }
+        string title;
+        public string Title
+        {
+            get
+            {
+                if (title == null)
+                    title = Path.Substring(Path.LastIndexOf("\\") + 1);
+                return title;
+            }
+        }
         IEnumerable<File> files;
         IEnumerable<Directory> directories;
         public string Path { get; set; }
@@ -26,7 +36,6 @@ namespace TextfileMenu
                     directories = System.IO.Directory.EnumerateDirectories(Path).Select(s => new Directory() { Path = s });
                 return directories;
             }
-            set { directories = value; }
         }
         public IEnumerable<File> Files
         {
@@ -36,12 +45,20 @@ namespace TextfileMenu
                     files = System.IO.Directory.EnumerateFiles(Path).Select(s => new File() { FileName = s });
                 return files;
             }
-            set { files = value; }
         }
     }
     class File : IDirectoryItem
     {
-        public string Title { get { return FileName.Substring(FileName.LastIndexOf("\\") + 1); } }
+        string title;
+        public string Title
+        {
+            get
+            {
+                if (title == null)
+                    title = FileName.Substring(FileName.LastIndexOf("\\") + 1);
+                return title;
+            }
+        }
         private string[] content;
         public string FileName { get; set; }
         public string[] Content
@@ -58,62 +75,146 @@ namespace TextfileMenu
     enum Confirm { No, Yes }
     static class Program
     {
-        static Selector<object> CreateMenuByDirectory(Directory dir, string extension)
+        static Selector<object> CreateMenuByDirectory(Directory dir, IEnumerable<string> extensions)
         {
-            var items = dir.Directories.Select((x) => CreateMenuByDirectory(x, extension)).ToList<object>();
-            items.AddRange(dir.Files.Where(x => x.FileName.EndsWith(extension)));
+            var dirsplash = new Splash() { ForegroundColor = ConsoleColor.Cyan };
+            var filesplash = new Splash() { ForegroundColor = ConsoleColor.Green };
+            var items = dir.Directories
+                .Select((x) => CreateMenuByDirectory(x, extensions))
+                .Where(x => x != null)
+                .ToList<object>();
+            items.AddRange(dir.Files.Where(x => extensions.Any(e => x.FileName.EndsWith(e))));
             var dirname = new DirectoryInfo(dir.Path).Name;
-            var menu = new Selector<object>(items)
+            if (items.Any())
             {
-                Header = dirname,
-                Title = dirname,
-                IsMenu = true,
-                PostSelectTrigger = (x) =>
+                var menu = new Selector<object>(items)
                 {
-                    x.IfType<ISelector>(y => y.Select());
-                    if (x is File)
+                    Header = dirname,
+                    Title = dirname,
+                    IsMenu = true,
+                    PostSelectTrigger = (x) =>
                     {
-                        Console.Clear();
-                        Console.CursorTop = 1;
-                        Console.CursorLeft = 3;
-                        foreach (var line in x.IfType<File>((_) => { }).Content)
+                        x.IfType<ISelector>(y => y.Select());
+                        if (x is File)
                         {
-                            Console.WriteLine(line);
+                            Console.Clear();
+                            Console.CursorTop = 1;
                             Console.CursorLeft = 3;
-                        }
+                            foreach (var line in x.IfType<File>((_) => { }).Content)
+                            {
+                                Console.WriteLine(line);
+                                Console.CursorLeft = 3;
+                            }
 
-                        Console.CursorTop += 2;
-                        Console.WriteLine("[Press Escape to go back]");
-                        for (ConsoleKey key = 0; key != ConsoleKey.Escape; key = Console.ReadKey(true).Key) ;
-                    }
-                },
-                DisplayFormat = x =>
-                {
-                    string value = null;
-                    x.IfType<File>(y =>
+                            Console.CursorTop += 2;
+                            Console.WriteLine("[Press Escape to go back]");
+                            for (ConsoleKey key = 0; key != ConsoleKey.Escape; key = Console.ReadKey(true).Key) ;
+                        }
+                    },
+                    DisplayFormat = x =>
                     {
-                        var name = y.FileName;
-                        var index = name.LastIndexOf("\\");
-                        if (index >= 0)
-                            name = name.Substring(index + 1);
-                        if (name.EndsWith(extension))
-                            name = name.Substring(0, name.LastIndexOf(extension));
-                        value = name.TrimEnd();
-                    });
-                    x.IfType<ISelector>(y => value = y.Title);
-                    return value;
-                }
-            };
+                        string value = null;
+                        x.IfType<File>(y =>
+                        {
+                            value = y.FileName;
+                            var index = value.LastIndexOf("\\");
+                            if (index >= 0)
+                                value = value.Substring(index + 1);
+                            if (value.EndsWith("."))
+                                value = value.Substring(0, value.LastIndexOf("."));
+                        });
+                        x.IfType<ISelector>(y => value = y.Title);
+                        return value;
+                    },
+                    ContentSplashSelector = y =>
+                    {
+                        if (y is ISelector)
+                            return dirsplash;
+                        return filesplash;
+                    }
+                };
+                return menu;
+            }
+            return null;
+        }
+        public static Selector<object> CreateMenu(string path, EnumSelector<Confirm> exit, IEnumerable<string> extensions)
+        {
+            var dir = new Directory() { Path = path };
+            var menu = CreateMenuByDirectory(dir, extensions);
+            if (menu != null)
+            {
+
+                menu.CancelTrigger = x => menu.Cancel = exit.Select().Cast<Confirm>().Selected == Confirm.Yes;
+                menu.KeyPressActions[ConsoleKey.O] = (m) =>
+                {
+                    menu.Cancel = true;
+                    menu.CancelTrigger = (_) => { };
+                };
+            }
             return menu;
         }
+        [Flags]
+        enum Extensions
+        {
+            txt = 1,
+            html = 2,
+            css = 4,
+            js = 8,
+            htm = 16,
+            php = 32,
+
+        }
+        [STAThread]
         static void Main(string[] args)
         {
-            var dir = new Directory() { Path = @"C:\Users\Linus\Documents\Rollspel\Exalted - Character" };
-            var ext = ".txt";
-            var menu = CreateMenuByDirectory(dir, ext);
-            var exit = new EnumSelector<Confirm> { Header = "Do you want to quit?" };
-            menu.CancelTrigger = x => menu.Cancel = exit.Select().Cast<Confirm>().Selected == Confirm.Yes;
-            menu.Select();
+              try
+            {
+                var root = new FolderBrowserDialog() { SelectedPath = "." };
+                var exit = new EnumSelector<Confirm> { Header = "Do you want to quit?" };
+                var extensions = FlagSelector.New<Extensions>();
+                var exts = Enum.GetValues(typeof(Extensions)).Cast<Extensions>();
+                extensions.AllowCancel = false;
+                Selector<object> menu;
+                do
+                {
+                    extensions.Select();
+                    root.ShowDialog();
+                    menu = CreateMenu(root.SelectedPath, exit, exts.Where(x => extensions.Selected.HasFlag(x)).Select(x => $".{x}"));
+                    if (menu == null)
+                    {
+                        Console.Clear();
+                        Console.BackgroundColor = ConsoleColor.DarkRed;
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.CursorTop = 1;
+                        Console.CursorLeft = 3;
+                        Console.Write($"Cannot select folder. It contains no textfiles.");
+                        Console.CursorTop++;
+                        Console.CursorLeft = 3;
+                        Console.Write("[Press enter to load another folder]");
+                        Console.ReadLine();
+                        Console.ResetColor();
+                        continue;
+                    }
+                    menu.Select();
+                } while (exit.Selected != Confirm.Yes);
+            }
+            catch(Exception ex)
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.DarkRed;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.CursorTop = 1;
+                Console.CursorLeft = 3;
+                Console.Write($"An error has occured:");
+                Console.CursorTop++;
+                Console.CursorLeft = 3;
+                Console.WriteLine(ex.Message);
+                Console.CursorTop++;
+                Console.CursorLeft = 3;
+                Console.Write("[Press enter to exit]");
+                Console.ReadLine();
+            }
+
         }
     }
 }

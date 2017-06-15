@@ -85,6 +85,7 @@ namespace ConsoleTools
         public string OutputString { get { return Selected != null ? DisplayFormat(Selected) : string.Empty; } }
         public Action<T> PreSelectTrigger { get; set; } = (t) => { };
         public Action<T> PostSelectTrigger { get; set; } = (t) => { };
+        public Func<T, Splash> ContentSplashSelector { get; set; } = (x) => new Splash();
         protected IEnumerable<string> GetPrintLines(string value)
         {
             var lines = value.Split('\n').Select(s => s.TrimEnd());

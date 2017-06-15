@@ -50,7 +50,7 @@ namespace ConsoleToolsManualTest
         Vattenprovet = 0x100000,
         VattenprovetÖppetVatten = 0x200000,
     }
-    enum Option { Name, Age, Gender, Style, Colors, Weapon, Armour, Badges }
+    enum Option { Name, Age, Gender, Style, Weapon, Armour, Badges }
     class Character
     {
         public string Name { get; set; }
@@ -70,7 +70,7 @@ namespace ConsoleToolsManualTest
             Console.WindowHeight = 50;
         }
 
-        static void Load(IDictionary<Option, IInputTool> options, IEnumSelector<Confirm> doLoad = null)
+        static void PromptLoad(IDictionary<Option, IInputTool> options, IEnumSelector<Confirm> doLoad = null)
         {
             OpenFileDialog dialog;
             Character loaded = null;
@@ -109,7 +109,7 @@ namespace ConsoleToolsManualTest
                     {
                         doLoad.ErrorMessage = $"Data '{opt}' was corrupted in {dialog.FileName}.";
                         doLoad.HasError = true;
-                        Load(options, doLoad);
+                        PromptLoad(options, doLoad);
                     }
                 }
             }
@@ -153,7 +153,7 @@ namespace ConsoleToolsManualTest
             sel.PreSelectTrigger = sel.PreviewTrigger;
             return sel;
         }
-        static IDictionary<Option, IInputTool> GenerateOptions(IDictionary<Color, IEnumSelector<ConsoleColor>> colors)
+        static IDictionary<Option, IInputTool> GenerateOptions()
         {
             int minAge = 1;
             int maxAge = 200;
@@ -162,7 +162,6 @@ namespace ConsoleToolsManualTest
                 { Option.Age, new IntegerInput((val) => val >= minAge && val <= maxAge) { Title = "Age", Header = "How old are you?", ErrorMessage = $"Must be in range {minAge}-{maxAge}", Footer = "Limpistol för lösa tånaglar" } },
                 { Option.Gender, new Selector<string>(new string[] { "♂ - Male", "♀ - Female", "o - Other" }) { Title = "Gender", Header = "What's your gender?" } },
                 { Option.Style, GeneratePlayStyleSelector()},
-                { Option.Colors, new InputToolSelector<IEnumSelector<ConsoleColor>>(colors.Values) { Title = "Colors",Header = "Colors", Footer = "Footer preview text" } },
                 { Option.Weapon, new EnumSelector<Weapon> { Title = "Weapon", Header = "Choose your prefered weapon" } },
                 { Option.Armour, new EnumSelector<Armour> { Title = "Armour", Header = "Choose prefered armour" } },
                 { Option.Badges, FlagSelector.New<Badges>(Title: "Simmärken", Header: "Vilka simmärken har du tagit?") }
@@ -182,14 +181,20 @@ namespace ConsoleToolsManualTest
                 { Color.FooterBG, new EnumSelector<ConsoleColor> { Title = "Footer background color", Header = "Choose main menu footer background color" } },
             };
         }
-        static void Finalize(IInputToolSelector menu, IDictionary<Option, IInputTool> options, IDictionary<Color, IEnumSelector<ConsoleColor>> colors)
+        static IInputToolSelector GenerateColorSelector(IInputToolSelector menu)
         {
+            var colors = GenerateColorMenuItems();
+            var colorSelector = new InputToolSelector<IEnumSelector<ConsoleColor>>(colors.Values) { Title = "Colors", Header = "Colors", Footer = "Footer preview text" };
             //assign 
             menu.ActUponInputToolTree(x => x.HeaderColors = menu.HeaderColors);
             menu.ActUponInputToolTree(x => x.InputColors = menu.InputColors);
             menu.ActUponInputToolTree(x => x.FooterColors = menu.FooterColors);
-            options[Option.Colors].ActUponInputToolTree(x => x.Footer = "Footer preview text!");
-            foreach (var c in (options[Option.Colors] as ISelector<IEnumSelector<ConsoleColor>>).Choices.Skip(2))
+
+            colorSelector.ActUponInputToolTree(x => x.HeaderColors = menu.HeaderColors);
+            colorSelector.ActUponInputToolTree(x => x.InputColors = menu.InputColors);
+            colorSelector.ActUponInputToolTree(x => x.FooterColors = menu.FooterColors);
+            colorSelector.ActUponInputToolTree(x => x.Footer = "Footer preview text!");
+            foreach (var c in colorSelector.Choices.Skip(2))
             {
                 c.Choices.Add((ConsoleColor)(-1));
                 c.DisplayFormat = (color) =>
@@ -214,15 +219,11 @@ namespace ConsoleToolsManualTest
             colors[Color.FooterFG].CancelTrigger = (x) => menu.FooterColors.ForegroundColor = x;
             colors[Color.FooterBG].CancelTrigger = (x) => menu.FooterColors.BackgroundColor = x;
 
-            //badges
-            var badges = (IFlagSelector<Badges>)options[Option.Badges];
-            badges.AfterToggle = (x) => badges.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", badges.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
-            badges.AfterToggle(badges.PreviewSelected);
+            return colorSelector;
         }
         static string GetInfoString(IDictionary<Option, IInputTool> options)
         {
-            var rows = options.Where(o => o.Key != Option.Colors)
-                              .Select(o => $"{o.Value.Title}: {o.Value.OutputString}{Environment.NewLine}");
+            var rows = options.Select(o => $"{o.Value.Title}: {o.Value.OutputString}{Environment.NewLine}");
             return string.Concat(rows);
         }
         static void Save(IDictionary<Option, IInputTool> options)
@@ -244,16 +245,20 @@ namespace ConsoleToolsManualTest
                 File.WriteAllText(dialog.FileName, json);
             }
         }
-
-        [STAThread]
-        static void Main(string[] args)
+        static void SetupBadgesFooter(IFlagSelector<Badges> badges)
         {
-            Init();
-            var colors = GenerateColorMenuItems();
-            var options = GenerateOptions(colors);
+            badges.AfterToggle = (x) => badges.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", badges.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
+            badges.AfterToggle(badges.PreviewSelected);
+        }
+        static IInputTool GenerateMenu()
+        {
+            var options = GenerateOptions();
             var menu = new InputToolSelector<IInputTool>(options.Values) { Title = "Main menu", Header = "Main menu" };
-            Finalize(menu, options, colors);
-            Load(options);
+            var colorSelector = GenerateColorSelector(menu);
+            
+            SetupBadgesFooter((IFlagSelector<Badges>)options[Option.Badges]);
+
+            PromptLoad(options);
 
             menu.PreSelectTrigger = (x) => menu.Footer = GetInfoString(options);
             var exit = new EnumSelector<Exit> { Header = "Exiting character creation" };
@@ -261,7 +266,7 @@ namespace ConsoleToolsManualTest
             var save = new EnumSelector<Confirm>() { Header = saveHeader() };
             save.PostSelectTrigger = (x) => { if (x == Confirm.Yes) Save(options); };
             menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.S] = (m) => save.Select()));
-            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.C] = (m) => options[Option.Colors].Select()));
+            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.C] = (m) => colorSelector.Select()));
             menu.CancelTrigger = (x) =>
             {
                 exit.Select();
@@ -269,6 +274,14 @@ namespace ConsoleToolsManualTest
                 if (exit.Selected == Exit.SaveAndQuit)
                     Save(options);
             };
+            return menu;
+        }
+
+        [STAThread]
+        static void Main(string[] args)
+        {
+            Init();
+            var menu = GenerateMenu();
             menu.Select();
         }
     }

@@ -27,6 +27,7 @@ namespace ConsoleTools
         Action<T> PreSelectTrigger { get; set; }
         Action<T> PostSelectTrigger { get; set; }
         Func<T, string> DisplayFormat { get; set; }
+        Func<T, Splash> ContentSplashSelector { get; set; }
     }
     public interface ITextInput : IInputTool
     {
@@ -37,6 +38,7 @@ namespace ConsoleTools
     }
     public interface ISelector : IInputTool
     {
+        bool AllowCancel { get; set; }
         Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyPressActions { get; }
         IEnumerable<object> ObjChoices { get; }
         int Index { get; set; }

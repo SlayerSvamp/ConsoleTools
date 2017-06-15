@@ -12,10 +12,6 @@ namespace ConsoleTools
         {
             return (IInputTool<T>)tool;
         }
-        public static bool IsType<T>(this IInputTool tool)
-        {
-            return tool is IInputTool<T>;
-        }
         public static void ActUponInputToolTree(this IInputTool tool, Action<IInputTool> act)
         {
             act(tool);
@@ -26,7 +22,7 @@ namespace ConsoleTools
                     choice.ActUponInputToolTree(act);
             }
         }
-        public static T IfType<T>(this IInputTool tool, Action<T> act) where T : class, IInputTool
+        public static T IfType<T>(this object tool, Action<T> act) where T : class
         {
             if (tool is T)
             {

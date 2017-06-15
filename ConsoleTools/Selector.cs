@@ -115,7 +115,7 @@ namespace ConsoleTools
             {
                 bool isActive = Choices[PreviewIndex].Equals(choice);
                 var value = $"{(isActive ? ">" : " ")}{FormatChoice(choice)}";
-                var colors = isActive ? InputColors : new Splash();
+                var colors = isActive ? InputColors : ContentSplashSelector(choice);
                 PrintSegment(colors, value, false);
                 Console.CursorTop--;
             }
@@ -156,7 +156,7 @@ namespace ConsoleTools
                 else
                 {
                     PostSelect();
-                    if ((IsMenu && !Cancel) || !AllowCancel)
+                    if (IsMenu && !Cancel)
                     {
                         Select();
                     }
