@@ -17,15 +17,15 @@ namespace ConsoleTools
         Splash InputColors { get; set; }
         Splash FooterColors { get; set; }
         bool HasError { get; set; }
-        IInputTool Select();
-        string OutputString { get; }
-        object ObjSelected { get; }
+        IInputTool Activate();
+        string ValueAsString { get; }
+        object ObjValue { get; }
     }
     public interface IInputTool<T> : IInputTool
     {
-        T Selected { get; set; }
-        Action<T> PreSelectTrigger { get; set; }
-        Action<T> PostSelectTrigger { get; set; }
+        T Value { get; set; }
+        Action<T> PreActivateTrigger { get; set; }
+        Action<T> PostActivateTrigger { get; set; }
         Func<T, string> DisplayFormat { get; set; }
         Func<T, Splash> ContentSplashSelector { get; set; }
     }
@@ -40,16 +40,16 @@ namespace ConsoleTools
     {
         bool AllowCancel { get; set; }
         Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyPressActions { get; }
-        IEnumerable<object> ObjChoices { get; }
+        IEnumerable<object> ObjOptions { get; }
         int Index { get; set; }
         int PreviewIndex { get; set; }
     }
     public interface ISelector<T> : ISelector, IInputTool<T>
     {
-        T PreviewSelected { get; set; }
+        T PreviewValue { get; set; }
         Action<T> PreviewTrigger { get; set; }
         Action<T> CancelTrigger { get; set; }
-        List<T> Choices { get; }
+        List<T> Options { get; }
     }
     public interface IInputToolSelector : ISelector
     {

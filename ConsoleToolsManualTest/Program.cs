@@ -76,7 +76,7 @@ namespace ConsoleToolsManualTest
             Character loaded = null;
             if (doLoad == null)
                 doLoad = new EnumSelector<Confirm> { Title = "Load character", Header = "Do you want to load a character? (from file)" };
-            if (doLoad.Select().Cast<Confirm>().Selected == Confirm.Yes)
+            if ((Confirm)doLoad.Activate().ObjValue == Confirm.Yes)
             {
                 dialog = new OpenFileDialog();
                 if (dialog.ShowDialog() == DialogResult.OK)
@@ -91,19 +91,19 @@ namespace ConsoleToolsManualTest
                     try
                     {
                         opt = Option.Name;
-                        options[Option.Name].Cast<string>().Selected = loaded.Name;
+                        options[Option.Name].Cast<string>().Value = loaded.Name;
                         opt = Option.Age;
-                        options[Option.Age].Cast<int>().Selected = loaded.Age;
+                        options[Option.Age].Cast<int>().Value = loaded.Age;
                         opt = Option.Gender;
                         (options[Option.Gender] as ISelector).Index = loaded.Gender;
                         opt = Option.Style;
                         (options[Option.Style] as ISelector).Index = loaded.Style;
                         opt = Option.Weapon;
-                        options[Option.Weapon].Cast<Weapon>().Selected = loaded.Weapon;
+                        options[Option.Weapon].Cast<Weapon>().Value = loaded.Weapon;
                         opt = Option.Armour;
-                        options[Option.Armour].Cast<Armour>().Selected = loaded.Armour;
+                        options[Option.Armour].Cast<Armour>().Value = loaded.Armour;
                         opt = Option.Badges;
-                        options[Option.Badges].Cast<Badges>().Selected = loaded.Badges;
+                        options[Option.Badges].Cast<Badges>().Value = loaded.Badges;
                     }
                     catch (ArgumentException)
                     {
@@ -150,7 +150,7 @@ namespace ConsoleToolsManualTest
                     default: break;
                 }
             };
-            sel.PreSelectTrigger = sel.PreviewTrigger;
+            sel.PreActivateTrigger = sel.PreviewTrigger;
             return sel;
         }
         static IDictionary<Option, IInputTool> GenerateOptions()
@@ -171,8 +171,8 @@ namespace ConsoleToolsManualTest
         {
             return new Dictionary<Color, IEnumSelector<ConsoleColor>>
             {
-                { Color.ConsoleFG, new EnumSelector<ConsoleColor> { Title = "Console foreground color", Header = "Choose default foreground color for the program", Selected = ConsoleColor.Gray, PreviewTrigger = (x) => Console.ForegroundColor = x, CancelTrigger = (x) => Console.ForegroundColor = x } },
-                { Color.ConsoleBG, new EnumSelector<ConsoleColor> { Title = "Console background color", Header = "Choose default background color for the program", Selected = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x, CancelTrigger = (x) => Console.BackgroundColor = x } },
+                { Color.ConsoleFG, new EnumSelector<ConsoleColor> { Title = "Console foreground color", Header = "Choose default foreground color for the program", Value = ConsoleColor.Gray, PreviewTrigger = (x) => Console.ForegroundColor = x, CancelTrigger = (x) => Console.ForegroundColor = x } },
+                { Color.ConsoleBG, new EnumSelector<ConsoleColor> { Title = "Console background color", Header = "Choose default background color for the program", Value = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x, CancelTrigger = (x) => Console.BackgroundColor = x } },
                 { Color.HeaderFG, new EnumSelector<ConsoleColor> { Title = "Header foreground color", Header = "Choose header foreground color" } },
                 { Color.HeaderBG, new EnumSelector<ConsoleColor> { Title = "Header background color", Header = "Choose header background color"} },
                 { Color.SelectedFG, new EnumSelector<ConsoleColor> { Title = "Selection foreground color", Header = "Choose selected foreground color"} },
@@ -181,7 +181,7 @@ namespace ConsoleToolsManualTest
                 { Color.FooterBG, new EnumSelector<ConsoleColor> { Title = "Footer background color", Header = "Choose main menu footer background color" } },
             };
         }
-        static IInputToolSelector GenerateColorSelector(IInputToolSelector menu)
+        static InputToolSelector<IEnumSelector<ConsoleColor>> GenerateColorSelector(IInputToolSelector menu)
         {
             var colors = GenerateColorMenuItems();
             var colorSelector = new InputToolSelector<IEnumSelector<ConsoleColor>>(colors.Values) { Title = "Colors", Header = "Colors", Footer = "Footer preview text" };
@@ -194,12 +194,12 @@ namespace ConsoleToolsManualTest
             colorSelector.ActUponInputToolTree(x => x.InputColors = menu.InputColors);
             colorSelector.ActUponInputToolTree(x => x.FooterColors = menu.FooterColors);
             colorSelector.ActUponInputToolTree(x => x.Footer = "Footer preview text!");
-            foreach (var c in colorSelector.Choices.Skip(2))
+            foreach (var c in colorSelector.Options.Skip(2))
             {
-                c.Choices.Add((ConsoleColor)(-1));
+                c.Options.Add(Splash.NoColor);
                 c.DisplayFormat = (color) =>
                 {
-                    if (color == (ConsoleColor)(-1))
+                    if (color == Splash.NoColor)
                         return "Reset";
                     return color.ToString();
                 };
@@ -223,7 +223,7 @@ namespace ConsoleToolsManualTest
         }
         static string GetInfoString(IDictionary<Option, IInputTool> options)
         {
-            var rows = options.Select(o => $"{o.Value.Title}: {o.Value.OutputString}{Environment.NewLine}");
+            var rows = options.Select(o => $"{o.Value.Title}: {o.Value.ValueAsString}{Environment.NewLine}");
             return string.Concat(rows);
         }
         static void Save(IDictionary<Option, IInputTool> options)
@@ -233,13 +233,13 @@ namespace ConsoleToolsManualTest
             {
                 var json = JsonConvert.SerializeObject(new
                 {
-                    Name = options[Option.Name].Cast<string>().Selected,
-                    Age = options[Option.Age].Cast<int>().Selected,
+                    Name = options[Option.Name].Cast<string>().Value,
+                    Age = options[Option.Age].Cast<int>().Value,
                     Gender = (byte)(options[Option.Gender] as ISelector).Index,
                     Style = (byte)(options[Option.Style] as ISelector).Index,
-                    Weapon = options[Option.Weapon].Cast<Weapon>().Selected,
-                    Armour = options[Option.Armour].Cast<Armour>().Selected,
-                    Badges = options[Option.Badges].Cast<Badges>().Selected
+                    Weapon = options[Option.Weapon].Cast<Weapon>().Value,
+                    Armour = options[Option.Armour].Cast<Armour>().Value,
+                    Badges = options[Option.Badges].Cast<Badges>().Value
                 });
 
                 File.WriteAllText(dialog.FileName, json);
@@ -248,9 +248,9 @@ namespace ConsoleToolsManualTest
         static void SetupBadgesFooter(IFlagSelector<Badges> badges)
         {
             badges.AfterToggle = (x) => badges.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", badges.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
-            badges.AfterToggle(badges.PreviewSelected);
+            badges.AfterToggle(badges.PreviewValue);
         }
-        static IInputTool GenerateMenu()
+        static IInputToolSelector<IInputTool> GenerateMenu()
         {
             var options = GenerateOptions();
             var menu = new InputToolSelector<IInputTool>(options.Values) { Title = "Main menu", Header = "Main menu" };
@@ -260,18 +260,18 @@ namespace ConsoleToolsManualTest
 
             PromptLoad(options);
 
-            menu.PreSelectTrigger = (x) => menu.Footer = GetInfoString(options);
+            menu.PreActivateTrigger = (x) => menu.Footer = GetInfoString(options);
             var exit = new EnumSelector<Exit> { Header = "Exiting character creation" };
-            Func<string> saveHeader = () => $"Do you want to save '{options[Option.Name].Cast<string>().Selected}'?";
+            Func<string> saveHeader = () => $"Do you want to save '{options[Option.Name].Cast<string>().Value}'?";
             var save = new EnumSelector<Confirm>() { Header = saveHeader() };
-            save.PostSelectTrigger = (x) => { if (x == Confirm.Yes) Save(options); };
-            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.S] = (m) => save.Select()));
-            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.C] = (m) => colorSelector.Select()));
+            save.PostActivateTrigger = (x) => { if (x == Confirm.Yes) Save(options); };
+            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.S] = (m) => save.Activate()));
+            menu.ActUponInputToolTree(x => x.IfType<ISelector>(y => y.KeyPressActions[ConsoleKey.C] = (m) => colorSelector.Activate()));
             menu.CancelTrigger = (x) =>
             {
-                exit.Select();
-                menu.Cancel = exit.Selected != Exit.Cancel;
-                if (exit.Selected == Exit.SaveAndQuit)
+                exit.Activate();
+                menu.Cancel = exit.Value != Exit.Cancel;
+                if (exit.Value == Exit.SaveAndQuit)
                     Save(options);
             };
             return menu;
@@ -282,7 +282,7 @@ namespace ConsoleToolsManualTest
         {
             Init();
             var menu = GenerateMenu();
-            menu.Select();
+            menu.Activate();
         }
     }
     public static class Extensions

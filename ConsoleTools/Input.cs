@@ -15,10 +15,10 @@ namespace ConsoleTools
     {
         protected Func<T, bool> Predicate { get; set; }
         protected Func<string, T> Converter { get; set; }
-        public override IInputTool Select()
+        public override IInputTool Activate()
         {
-            PreSelectTrigger(Selected);
-            var input = OutputString;
+            PreActivateTrigger(Value);
+            var input = ValueAsString;
             T selected;
             while (true)
             {
@@ -41,9 +41,9 @@ namespace ConsoleTools
                 catch {/*empty*/}
                 HasError = true;
             }
-            Selected = Converter(input);
+            Value = Converter(input);
             HasError = false;
-            PostSelectTrigger(Selected);
+            PostActivateTrigger(Value);
             return this;
         }
         protected override void PrintContent()

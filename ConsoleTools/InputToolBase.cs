@@ -6,47 +6,6 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
-    public class Splash
-    {
-        public static Action<string> Writer { get; set; } = Console.Write;
-        public ConsoleColor ForegroundColor { get; set; } = (ConsoleColor)(-1);
-        public ConsoleColor BackgroundColor { get; set; } = (ConsoleColor)(-1);
-        public bool HasFColor
-        {
-            get { return Enum.IsDefined(typeof(ConsoleColor), ForegroundColor); }
-            set { ForegroundColor = (value) ? Console.ForegroundColor : (ConsoleColor)(-1); }
-        }
-        public bool HasBColor
-        {
-            get { return Enum.IsDefined(typeof(ConsoleColor), BackgroundColor); }
-            set { BackgroundColor = (value) ? Console.BackgroundColor : (ConsoleColor)(-1); }
-        }
-        public void Write(string value)
-        {
-            Act(() => Writer(value));
-        }
-        public void Act(Action act)
-        {
-            if ((int)ForegroundColor == -1 && (int)BackgroundColor == -1)
-            {
-                act();
-                return;
-            }
-            var fg = Console.ForegroundColor;
-            var bg = Console.BackgroundColor;
-
-            var doFG = (int)ForegroundColor < 16 && ForegroundColor >= 0;
-            var doBG = (int)BackgroundColor < 16 && BackgroundColor >= 0;
-
-            if (doFG) Console.ForegroundColor = ForegroundColor;
-            if (doBG) Console.BackgroundColor = BackgroundColor;
-
-            act();
-
-            if (doFG) Console.ForegroundColor = fg;
-            if (doBG) Console.BackgroundColor = bg;
-        }
-    }
     abstract public class InputToolBase<T> : IInputTool<T>
     {
         protected IEnumerable<string> ContentParts { get; set; }
@@ -70,8 +29,8 @@ namespace ConsoleTools
 
             }
         }
-        public virtual T Selected { get; set; }
-        public object ObjSelected { get { return Selected; } }
+        public virtual T Value { get; set; }
+        public object ObjValue { get { return Value; } }
         public string Title { get; set; } = "";
         public string Header { get; set; } = "";
         public string Footer { get; set; } = "";
@@ -82,9 +41,9 @@ namespace ConsoleTools
         public Splash FooterColors { get; set; } = new Splash();
         public bool HasError { get; set; } = false;
         public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
-        public string OutputString { get { return Selected != null ? DisplayFormat(Selected) : string.Empty; } }
-        public Action<T> PreSelectTrigger { get; set; } = (t) => { };
-        public Action<T> PostSelectTrigger { get; set; } = (t) => { };
+        public string ValueAsString { get { return Value != null ? DisplayFormat(Value) : string.Empty; } }
+        public Action<T> PreActivateTrigger { get; set; } = (t) => { };
+        public Action<T> PostActivateTrigger { get; set; } = (t) => { };
         public Func<T, Splash> ContentSplashSelector { get; set; } = (x) => new Splash();
         protected IEnumerable<string> GetPrintLines(string value)
         {
@@ -123,7 +82,7 @@ namespace ConsoleTools
         {
             if (HasError) PrintSegment(ErrorMessageColors, ErrorMessage);
         }
-        public abstract IInputTool Select();
+        public abstract IInputTool Activate();
         protected abstract void PrintContent();
         protected void PrintFooter()
         {

@@ -18,7 +18,7 @@ namespace ConsoleTools
 
             if (tool is IInputToolSelector)
             {
-                foreach (var choice in (tool as ISelector).ObjChoices.Cast<IInputTool>())
+                foreach (var choice in (tool as ISelector).ObjOptions.Cast<IInputTool>())
                     choice.ActUponInputToolTree(act);
             }
         }

@@ -12,12 +12,12 @@ namespace ConsoleTools
         protected int index;
         protected int previewIndex;
         public bool AllowCancel { get; set; } = true;
-        public override T Selected
+        public override T Value
         {
-            get { return Choices[Index]; }
+            get { return Options[Index]; }
             set
             {
-                var newIndex = Choices.IndexOf(value);
+                var newIndex = Options.IndexOf(value);
                 if (newIndex >= 0)
                 {
                     Index = newIndex;
@@ -28,12 +28,12 @@ namespace ConsoleTools
                 }
             }
         }
-        public virtual T PreviewSelected
+        public virtual T PreviewValue
         {
-            get { return Choices[PreviewIndex]; }
+            get { return Options[PreviewIndex]; }
             set
             {
-                var newIndex = Choices.IndexOf(value);
+                var newIndex = Options.IndexOf(value);
                 if (newIndex >= 0)
                 {
                     PreviewIndex = newIndex;
@@ -44,18 +44,18 @@ namespace ConsoleTools
                 }
             }
         }
-        public List<T> Choices { get; private set; }
-        public IEnumerable<object> ObjChoices { get { return Choices.Cast<object>(); } }
-        public int IndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < Index).Sum(); } }
-        public int PreviewIndexCursorPosition { get { return ContentCursorTop + Choices.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < PreviewIndex).Sum(); } }
+        public List<T> Options { get; private set; }
+        public IEnumerable<object> ObjOptions { get { return Options.Cast<object>(); } }
+        public int IndexCursorPosition { get { return ContentCursorTop + Options.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < Index).Sum(); } }
+        public int PreviewIndexCursorPosition { get { return ContentCursorTop + Options.Select(c => GetPrintLines(DisplayFormat(c)).Count()).TakeWhile((v, i) => i < PreviewIndex).Sum(); } }
         public int Index
         {
             get { return index; }
             set
             {
                 index = value;
-                while (index < 0) index += Choices.Count;
-                index %= Choices.Count;
+                while (index < 0) index += Options.Count;
+                index %= Options.Count;
             }
         }
         public int PreviewIndex
@@ -64,8 +64,8 @@ namespace ConsoleTools
             set
             {
                 previewIndex = value;
-                while (previewIndex < 0) previewIndex += Choices.Count;
-                previewIndex %= Choices.Count;
+                while (previewIndex < 0) previewIndex += Options.Count;
+                previewIndex %= Options.Count;
             }
         }
         public Action<T> PreviewTrigger { get; set; } = (t) => { };
@@ -76,33 +76,33 @@ namespace ConsoleTools
 
         public Selector(IEnumerable<T> choices)
         {
-            Choices = choices.ToList();
+            Options = choices.ToList();
             if (choices == null)
             {
                 throw new ArgumentException("Selector type constructor: argument 'choices' cannot be null");
             }
 
-            var gHeader = $"Go to index (0-{Choices.Count - 1}):";
-            var gErrorMessage = $"Index must be between 0 and {Choices.Count - 1}!";
-            var gFooter = string.Join("\n", Choices.Select((s, i) => $"{i}: {DisplayFormat(s)}"));
+            var gHeader = $"Go to index (0-{Options.Count - 1}):";
+            var gErrorMessage = $"Index must be between 0 and {Options.Count - 1}!";
+            var gFooter = string.Join("\n", Options.Select((s, i) => $"{i}: {DisplayFormat(s)}"));
             KeyPressActions = new Dictionary<ConsoleKey, Action<ConsoleModifiers>>
             {
-                { ConsoleKey.UpArrow,(m) => {PreviewIndex--; PreviewTrigger(PreviewSelected); } },
-                { ConsoleKey.DownArrow, (m) => {PreviewIndex++; PreviewTrigger(PreviewSelected); } },
+                { ConsoleKey.UpArrow,(m) => {PreviewIndex--; PreviewTrigger(PreviewValue); } },
+                { ConsoleKey.DownArrow, (m) => {PreviewIndex++; PreviewTrigger(PreviewValue); } },
                 {
                 ConsoleKey.G, (m) =>
                 {
                     if (m != ConsoleModifiers.Control) return;
-                    PreviewIndex = (int)new IntegerInput(x => x >= 0 && x < Choices.Count)
+                    PreviewIndex = (int)new IntegerInput(x => x >= 0 && x < Options.Count)
                     { Header = gHeader, ErrorMessage = gErrorMessage, Footer = gFooter }
-                        .Select()
-                        .ObjSelected;
+                        .Activate()
+                        .ObjValue;
                 }},
                 { ConsoleKey.LeftWindows, (m) => { } },
                 { ConsoleKey.RightWindows, (m) => { } },
                 { ConsoleKey.Escape, (m) => Cancel = true }
             };
-            PreviewSelected = Selected;
+            PreviewValue = Value;
         }
 
         protected virtual string FormatChoice(T choice)
@@ -111,9 +111,9 @@ namespace ConsoleTools
         }
         protected override void PrintContent()
         {
-            foreach (var choice in Choices)
+            foreach (var choice in Options)
             {
-                bool isActive = Choices[PreviewIndex].Equals(choice);
+                bool isActive = Options[PreviewIndex].Equals(choice);
                 var value = $"{(isActive ? ">" : " ")}{FormatChoice(choice)}";
                 var colors = isActive ? InputColors : ContentSplashSelector(choice);
                 PrintSegment(colors, value, false);
@@ -123,25 +123,25 @@ namespace ConsoleTools
         }
         protected virtual void PostSelect()
         {
-            Selected = PreviewSelected;
-            PostSelectTrigger(Selected);
+            Value = PreviewValue;
+            PostActivateTrigger(Value);
         }
         protected virtual void PreSelect()
         {
             Cancel = false;
-            PreSelectTrigger(Selected);
+            PreActivateTrigger(Value);
         }
-        public override IInputTool Select()
+        public override IInputTool Activate()
         {
             PreSelect();
             while (true)
             {
                 if (Cancel && AllowCancel)
                 {
-                    CancelTrigger(Selected);
+                    CancelTrigger(Value);
                     if (Cancel && AllowCancel)
                     {
-                        PreviewSelected = Selected;
+                        PreviewValue = Value;
                         return this;
                     }
                 }
@@ -158,7 +158,7 @@ namespace ConsoleTools
                     PostSelect();
                     if (IsMenu && !Cancel)
                     {
-                        Select();
+                        Activate();
                     }
                     return this;
                 }
@@ -170,7 +170,7 @@ namespace ConsoleTools
         protected override void PostSelect()
         {
             base.PostSelect();
-            Selected.Select();
+            Value.Activate();
         }
         public InputToolSelector(IEnumerable<T> choices) : base(choices)
         {
@@ -193,16 +193,16 @@ namespace ConsoleTools
         public Action<T> AfterToggle { get; set; } = (t) => { };
         public U TotalFlagValue { get; protected set; }
         public U PreviewTotalFlagValue { get; protected set; }
-        public override T Selected { get { return (T)(dynamic)TotalFlagValue; } set { TotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
-        public override T PreviewSelected { get { return (T)(dynamic)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
+        public override T Value { get { return (T)(dynamic)TotalFlagValue; } set { TotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
+        public override T PreviewValue { get { return (T)(dynamic)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
         protected FlagSelectorBase()
         {
-            KeyPressActions.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewSelected); });
+            KeyPressActions.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewValue); });
         }
 
         protected bool IsSelected(T value)
         {
-            return (PreviewSelected as Enum).HasFlag(value as Enum);
+            return (PreviewValue as Enum).HasFlag(value as Enum);
         }
         protected override string FormatChoice(T choice)
         {
@@ -241,8 +241,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            sbyte val = (sbyte)Convert.ChangeType(Choices[PreviewIndex], typeof(sbyte));
-            if (IsSelected(Choices[PreviewIndex]))
+            sbyte val = (sbyte)Convert.ChangeType(Options[PreviewIndex], typeof(sbyte));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= (sbyte)~val;
             else PreviewTotalFlagValue |= val;
         }
@@ -251,8 +251,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            byte val = (byte)Convert.ChangeType(Choices[PreviewIndex], typeof(byte));
-            if (IsSelected(Choices[PreviewIndex]))
+            byte val = (byte)Convert.ChangeType(Options[PreviewIndex], typeof(byte));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= (byte)~val;
             else PreviewTotalFlagValue |= val;
         }
@@ -261,8 +261,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            short val = (short)Convert.ChangeType(Choices[PreviewIndex], typeof(short));
-            if (IsSelected(Choices[PreviewIndex]))
+            short val = (short)Convert.ChangeType(Options[PreviewIndex], typeof(short));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= (short)~val;
             else PreviewTotalFlagValue |= val;
         }
@@ -271,8 +271,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            ushort val = (ushort)Convert.ChangeType(Choices[PreviewIndex], typeof(ushort));
-            if (IsSelected(Choices[PreviewIndex]))
+            ushort val = (ushort)Convert.ChangeType(Options[PreviewIndex], typeof(ushort));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= (ushort)~val;
             else PreviewTotalFlagValue |= val;
         }
@@ -281,8 +281,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            int val = (int)Convert.ChangeType(Choices[PreviewIndex], typeof(int));
-            if (IsSelected(Choices[PreviewIndex]))
+            int val = (int)Convert.ChangeType(Options[PreviewIndex], typeof(int));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= ~val;
             else PreviewTotalFlagValue |= val;
         }
@@ -291,8 +291,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            uint val = (uint)Convert.ChangeType(Choices[PreviewIndex], typeof(uint));
-            if (IsSelected(Choices[PreviewIndex]))
+            uint val = (uint)Convert.ChangeType(Options[PreviewIndex], typeof(uint));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= ~val;
             else PreviewTotalFlagValue |= val;
         }
@@ -301,8 +301,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            long val = (long)Convert.ChangeType(Choices[PreviewIndex], typeof(long));
-            if (IsSelected(Choices[PreviewIndex]))
+            long val = (long)Convert.ChangeType(Options[PreviewIndex], typeof(long));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= ~val;
             else PreviewTotalFlagValue |= val;
         }
@@ -311,8 +311,8 @@ namespace ConsoleTools
     {
         protected override void ToggleFlag()
         {
-            ulong val = (ulong)Convert.ChangeType(Choices[PreviewIndex], typeof(ulong));
-            if (IsSelected(Choices[PreviewIndex]))
+            ulong val = (ulong)Convert.ChangeType(Options[PreviewIndex], typeof(ulong));
+            if (IsSelected(Options[PreviewIndex]))
                 PreviewTotalFlagValue &= ~val;
             else PreviewTotalFlagValue |= val;
         }

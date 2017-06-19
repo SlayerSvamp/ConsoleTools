@@ -92,9 +92,9 @@ namespace TextfileMenu
                     Header = dirname,
                     Title = dirname,
                     IsMenu = true,
-                    PostSelectTrigger = (x) =>
+                    PostActivateTrigger = (x) =>
                     {
-                        x.IfType<ISelector>(y => y.Select());
+                        x.IfType<ISelector>(y => y.Activate());
                         if (x is File)
                         {
                             Console.Clear();
@@ -144,7 +144,7 @@ namespace TextfileMenu
             if (menu != null)
             {
 
-                menu.CancelTrigger = x => menu.Cancel = exit.Select().Cast<Confirm>().Selected == Confirm.Yes;
+                menu.CancelTrigger = x => menu.Cancel = exit.Activate().Cast<Confirm>().Value == Confirm.Yes;
                 menu.KeyPressActions[ConsoleKey.O] = (m) =>
                 {
                     menu.Cancel = true;
@@ -177,9 +177,9 @@ namespace TextfileMenu
                 Selector<object> menu;
                 do
                 {
-                    extensions.Select();
+                    extensions.Activate();
                     root.ShowDialog();
-                    menu = CreateMenu(root.SelectedPath, exit, exts.Where(x => extensions.Selected.HasFlag(x)).Select(x => $".{x}"));
+                    menu = CreateMenu(root.SelectedPath, exit, exts.Where(x => extensions.Value.HasFlag(x)).Select(x => $".{x}"));
                     if (menu == null)
                     {
                         Console.Clear();
@@ -195,8 +195,8 @@ namespace TextfileMenu
                         Console.ResetColor();
                         continue;
                     }
-                    menu.Select();
-                } while (exit.Selected != Confirm.Yes);
+                    menu.Activate();
+                } while (exit.Value != Confirm.Yes);
             }
             catch(Exception ex)
             {
