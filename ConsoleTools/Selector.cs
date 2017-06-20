@@ -116,7 +116,7 @@ namespace ConsoleTools
                 bool isActive = Options[PreviewIndex].Equals(choice);
                 var value = $"{(isActive ? ">" : " ")}{FormatChoice(choice)}";
                 var colors = isActive ? InputColors : ContentSplashSelector(choice);
-                PrintSegment(colors, value, false);
+                PrintSegment(colors, value);
                 Console.CursorTop--;
             }
             Console.CursorTop++;

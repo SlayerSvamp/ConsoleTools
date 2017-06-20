@@ -60,7 +60,7 @@ namespace ConsoleTools
                 }
             }
         }
-        protected int PrintSegment(Splash colors, string value, bool padded = true)
+        protected int PrintSegment(Splash colors, string value)
         {
             if (value.Length == 0) return 0;
             var lines = GetPrintLines(value).ToList();

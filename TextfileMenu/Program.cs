@@ -9,11 +9,7 @@ using System.Windows.Forms;
 
 namespace TextfileMenu
 {
-    public interface IDirectoryItem
-    {
-
-    }
-    class Directory : IDirectoryItem
+    class Directory
     {
         string title;
         public string Title
@@ -47,7 +43,7 @@ namespace TextfileMenu
             }
         }
     }
-    class File : IDirectoryItem
+    class File
     {
         string title;
         public string Title
@@ -164,10 +160,23 @@ namespace TextfileMenu
             php = 32,
 
         }
+        static void DisplayErrorMessage(string message, string pressEnterMessage = "[Press enter to continue]")
+        {
+            Console.Clear();
+            Console.BackgroundColor = ConsoleColor.DarkRed;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.CursorTop = 1;
+            Console.CursorLeft = 3;
+            Console.WriteLine(message);
+            Console.CursorTop++;
+            Console.CursorLeft = 3;
+            Console.Write(pressEnterMessage);
+            Console.ReadLine();
+        }
         [STAThread]
         static void Main(string[] args)
         {
-              try
+            try
             {
                 var root = new FolderBrowserDialog() { SelectedPath = "." };
                 var exit = new EnumSelector<Confirm> { Header = "Do you want to quit?" };
@@ -182,37 +191,15 @@ namespace TextfileMenu
                     menu = CreateMenu(root.SelectedPath, exit, exts.Where(x => extensions.Value.HasFlag(x)).Select(x => $".{x}"));
                     if (menu == null)
                     {
-                        Console.Clear();
-                        Console.BackgroundColor = ConsoleColor.DarkRed;
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.CursorTop = 1;
-                        Console.CursorLeft = 3;
-                        Console.Write($"Cannot select folder. It contains no textfiles.");
-                        Console.CursorTop++;
-                        Console.CursorLeft = 3;
-                        Console.Write("[Press enter to load another folder]");
-                        Console.ReadLine();
-                        Console.ResetColor();
+                        DisplayErrorMessage("Cannot select folder. It contains no textfiles.", "[Press enter to load another folder]");
                         continue;
                     }
                     menu.Activate();
                 } while (exit.Value != Confirm.Yes);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                Console.Clear();
-                Console.BackgroundColor = ConsoleColor.DarkRed;
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.CursorTop = 1;
-                Console.CursorLeft = 3;
-                Console.Write($"An error has occured:");
-                Console.CursorTop++;
-                Console.CursorLeft = 3;
-                Console.WriteLine(ex.Message);
-                Console.CursorTop++;
-                Console.CursorLeft = 3;
-                Console.Write("[Press enter to exit]");
-                Console.ReadLine();
+                DisplayErrorMessage($"An error has occured:\n{ex.Message}", "[Press enter to exit]");
             }
 
         }
