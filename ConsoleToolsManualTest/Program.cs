@@ -186,13 +186,13 @@ namespace ConsoleToolsManualTest
             var colors = GenerateColorMenuItems();
             var colorSelector = new InputToolSelector<IEnumSelector<ConsoleColor>>(colors.Values) { Title = "Colors", Header = "Colors", Footer = "Footer preview text" };
             //assign 
-            menu.ActUponInputToolTree(x => x.HeaderColors = menu.HeaderColors);
-            menu.ActUponInputToolTree(x => x.InputColors = menu.InputColors);
-            menu.ActUponInputToolTree(x => x.FooterColors = menu.FooterColors);
+            menu.ActUponInputToolTree(x => x.HeaderSplash = menu.HeaderSplash);
+            menu.ActUponInputToolTree(x => x.InputSplash = menu.InputSplash);
+            menu.ActUponInputToolTree(x => x.FooterSplash = menu.FooterSplash);
 
-            colorSelector.ActUponInputToolTree(x => x.HeaderColors = menu.HeaderColors);
-            colorSelector.ActUponInputToolTree(x => x.InputColors = menu.InputColors);
-            colorSelector.ActUponInputToolTree(x => x.FooterColors = menu.FooterColors);
+            colorSelector.ActUponInputToolTree(x => x.HeaderSplash = menu.HeaderSplash);
+            colorSelector.ActUponInputToolTree(x => x.InputSplash = menu.InputSplash);
+            colorSelector.ActUponInputToolTree(x => x.FooterSplash = menu.FooterSplash);
             colorSelector.ActUponInputToolTree(x => x.Footer = "Footer preview text!");
             foreach (var c in colorSelector.Options.Skip(2))
             {
@@ -205,19 +205,19 @@ namespace ConsoleToolsManualTest
                 };
             }
 
-            colors[Color.HeaderFG].PreviewTrigger = (x) => menu.HeaderColors.ForegroundColor = x;
-            colors[Color.HeaderBG].PreviewTrigger = (x) => menu.HeaderColors.BackgroundColor = x;
-            colors[Color.SelectedFG].PreviewTrigger = (x) => menu.InputColors.ForegroundColor = x;
-            colors[Color.SelectedBG].PreviewTrigger = (x) => menu.InputColors.BackgroundColor = x;
-            colors[Color.FooterFG].PreviewTrigger = (x) => menu.FooterColors.ForegroundColor = x;
-            colors[Color.FooterBG].PreviewTrigger = (x) => menu.FooterColors.BackgroundColor = x;
+            colors[Color.HeaderFG].PreviewTrigger = (x) => menu.HeaderSplash.ForegroundColor = x;
+            colors[Color.HeaderBG].PreviewTrigger = (x) => menu.HeaderSplash.BackgroundColor = x;
+            colors[Color.SelectedFG].PreviewTrigger = (x) => menu.InputSplash.ForegroundColor = x;
+            colors[Color.SelectedBG].PreviewTrigger = (x) => menu.InputSplash.BackgroundColor = x;
+            colors[Color.FooterFG].PreviewTrigger = (x) => menu.FooterSplash.ForegroundColor = x;
+            colors[Color.FooterBG].PreviewTrigger = (x) => menu.FooterSplash.BackgroundColor = x;
 
-            colors[Color.HeaderFG].CancelTrigger = (x) => menu.HeaderColors.ForegroundColor = x;
-            colors[Color.HeaderBG].CancelTrigger = (x) => menu.HeaderColors.BackgroundColor = x;
-            colors[Color.SelectedFG].CancelTrigger = (x) => menu.InputColors.ForegroundColor = x;
-            colors[Color.SelectedBG].CancelTrigger = (x) => menu.InputColors.BackgroundColor = x;
-            colors[Color.FooterFG].CancelTrigger = (x) => menu.FooterColors.ForegroundColor = x;
-            colors[Color.FooterBG].CancelTrigger = (x) => menu.FooterColors.BackgroundColor = x;
+            colors[Color.HeaderFG].CancelTrigger = (x) => menu.HeaderSplash.ForegroundColor = x;
+            colors[Color.HeaderBG].CancelTrigger = (x) => menu.HeaderSplash.BackgroundColor = x;
+            colors[Color.SelectedFG].CancelTrigger = (x) => menu.InputSplash.ForegroundColor = x;
+            colors[Color.SelectedBG].CancelTrigger = (x) => menu.InputSplash.BackgroundColor = x;
+            colors[Color.FooterFG].CancelTrigger = (x) => menu.FooterSplash.ForegroundColor = x;
+            colors[Color.FooterBG].CancelTrigger = (x) => menu.FooterSplash.BackgroundColor = x;
 
             return colorSelector;
         }

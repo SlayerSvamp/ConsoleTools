@@ -35,10 +35,10 @@ namespace ConsoleTools
         public string Header { get; set; } = "";
         public string Footer { get; set; } = "";
         public string ErrorMessage { get; set; } = "";
-        public Splash HeaderColors { get; set; } = new Splash();
-        public Splash ErrorMessageColors { get; set; } = new Splash { ForegroundColor = ConsoleColor.Red };
-        public Splash InputColors { get; set; } = new Splash { ForegroundColor = ConsoleColor.White };
-        public Splash FooterColors { get; set; } = new Splash();
+        public Splash HeaderSplash { get; set; } = new Splash();
+        public Splash ErrorMessageSplash { get; set; } = new Splash { ForegroundColor = ConsoleColor.Red };
+        public Splash InputSplash { get; set; } = new Splash { ForegroundColor = ConsoleColor.White };
+        public Splash FooterSplash { get; set; } = new Splash();
         public bool HasError { get; set; } = false;
         public Func<T, string> DisplayFormat { get; set; } = (selected) => selected.ToString();
         public string ValueAsString { get { return Value != null ? DisplayFormat(Value) : string.Empty; } }
@@ -76,17 +76,17 @@ namespace ConsoleTools
         protected void PrintHead()
         {
             Console.CursorTop = 1;
-            PrintSegment(HeaderColors, Header);
+            PrintSegment(HeaderSplash, Header);
         }
         protected void PrintErrorMessage()
         {
-            if (HasError) PrintSegment(ErrorMessageColors, ErrorMessage);
+            if (HasError) PrintSegment(ErrorMessageSplash, ErrorMessage);
         }
         public abstract IInputTool Activate();
         protected abstract void PrintContent();
         protected void PrintFooter()
         {
-            PrintSegment(FooterColors, Footer);
+            PrintSegment(FooterSplash, Footer);
         }
         protected void PrintAll()
         {

@@ -115,25 +115,25 @@ namespace ConsoleTools
             {
                 bool isActive = Options[PreviewIndex].Equals(choice);
                 var value = $"{(isActive ? ">" : " ")}{FormatChoice(choice)}";
-                var colors = isActive ? InputColors : ContentSplashSelector(choice);
+                var colors = isActive ? InputSplash : ContentSplashSelector(choice);
                 PrintSegment(colors, value);
                 Console.CursorTop--;
             }
             Console.CursorTop++;
         }
-        protected virtual void PostSelect()
-        {
-            Value = PreviewValue;
-            PostActivateTrigger(Value);
-        }
-        protected virtual void PreSelect()
+        protected virtual void PreActivate()
         {
             Cancel = false;
             PreActivateTrigger(Value);
         }
+        protected virtual void PostActivate()
+        {
+            Value = PreviewValue;
+            PostActivateTrigger(Value);
+        }
         public override IInputTool Activate()
         {
-            PreSelect();
+            PreActivate();
             while (true)
             {
                 if (Cancel && AllowCancel)
@@ -155,7 +155,7 @@ namespace ConsoleTools
                 }
                 else
                 {
-                    PostSelect();
+                    PostActivate();
                     if (IsMenu && !Cancel)
                     {
                         Activate();
@@ -167,9 +167,9 @@ namespace ConsoleTools
     }
     public class InputToolSelector<T> : Selector<T>, IInputToolSelector<T> where T : IInputTool
     {
-        protected override void PostSelect()
+        protected override void PostActivate()
         {
-            base.PostSelect();
+            base.PostActivate();
             Value.Activate();
         }
         public InputToolSelector(IEnumerable<T> choices) : base(choices)

@@ -25,9 +25,18 @@ namespace ConsoleTools
                 PrintAll();
                 Console.CursorLeft = Indent;
                 Console.CursorTop = ContentCursorTop;
-                InputColors.Act(() =>
+                InputSplash.Act(() =>
                 {
-                    System.Windows.Forms.SendKeys.SendWait(input);
+                    try
+                    {
+                        System.Windows.Forms.SendKeys.SendWait(input);
+                    }
+                    catch
+                    {
+                        foreach (var c in input)
+                            try { System.Windows.Forms.SendKeys.SendWait(c.ToString()); }
+                            catch { /***** swollow everything! *****/ }
+                    }
                     input = Console.ReadLine();
                 });
                 try
