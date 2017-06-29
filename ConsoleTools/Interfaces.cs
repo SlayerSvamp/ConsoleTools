@@ -12,10 +12,10 @@ namespace ConsoleTools
         string Header { get; set; }
         string ErrorMessage { get; set; }
         string Footer { get; set; }
-        Splash HeaderColors { get; set; }
-        Splash ErrorMessageColors { get; set; }
-        Splash InputColors { get; set; }
-        Splash FooterColors { get; set; }
+        Splash HeaderSplash { get; set; }
+        Splash ErrorMessageSplash { get; set; }
+        Splash InputSplash { get; set; }
+        Splash FooterSplash { get; set; }
         bool HasError { get; set; }
         IInputTool Activate();
         string ValueAsString { get; }
@@ -73,5 +73,26 @@ namespace ConsoleTools
     public interface IFlagSelector<T> : IFlagSelector, IEnumSelector<T>
     {
         Action<T> AfterToggle { get; set; }
+    }
+    public interface IRange : IInputTool
+    {
+        bool AllowCancel { get; set; }
+        bool Cancel { get; set; } 
+        double SlideValueWidth { get; }
+        int SlideWidth { get; set; }
+        string SlideSymbols { get; set; }
+        Splash SlideSplash { get; set; }
+        Splash SlideBackgroundSplash { get; set; }
+    }
+    public interface IRange<T> : IInputTool<T>, IRange
+    {
+        T PreviewValue { get; set; }
+        Action<T> PreviewTrigger { get; set; }
+        Action<T> CancelTrigger { get; set; }
+        T MinRangeValue { get; set; }
+        T MaxRangeValue { get; set; }
+        T RangeSize { get; }
+        T Increment { get; set; }
+        Dictionary<ConsoleModifiers, T> IncrementByModifiers { get; set; }
     }
 }

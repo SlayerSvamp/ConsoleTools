@@ -45,12 +45,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="GenericTypeException.cs" />
     <Compile Include="InputToolBase.cs" />
     <Compile Include="Input.cs" />
     <Compile Include="InputToolExtensions.cs" />
     <Compile Include="Interfaces.cs" />
-    <Compile Include="PrettyWriter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Range.cs" />
     <Compile Include="Selector.cs" />
     <Compile Include="Splash.cs" />
   </ItemGroup>
