@@ -20,6 +20,7 @@ namespace ConsoleTools
         IInputTool Activate();
         string ValueAsString { get; }
         object ObjValue { get; }
+        //bool Cancel { get; set; }
     }
     public interface IInputTool<T> : IInputTool
     {
@@ -77,7 +78,6 @@ namespace ConsoleTools
     public interface IRange : IInputTool
     {
         bool AllowCancel { get; set; }
-        bool Cancel { get; set; } 
         double SlideValueWidth { get; }
         int SlideWidth { get; set; }
         string SlideSymbols { get; set; }
