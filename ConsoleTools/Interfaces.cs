@@ -20,7 +20,6 @@ namespace ConsoleTools
         IInputTool Activate();
         string ValueAsString { get; }
         object ObjValue { get; }
-        //bool Cancel { get; set; }
     }
     public interface IInputTool<T> : IInputTool
     {
@@ -40,6 +39,7 @@ namespace ConsoleTools
     public interface ISelector : IInputTool
     {
         bool AllowCancel { get; set; }
+        bool Cancel { get; set; }
         Dictionary<ConsoleKey, Action<ConsoleModifiers>> KeyPressActions { get; }
         IEnumerable<object> ObjOptions { get; }
         int Index { get; set; }
@@ -73,11 +73,10 @@ namespace ConsoleTools
     }
     public interface IFlagSelector<T> : IFlagSelector, IEnumSelector<T>
     {
-        Action<T> AfterToggle { get; set; }
+        Action<T> PostToggleTrigger { get; set; }
     }
     public interface IRange : IInputTool
     {
-        bool AllowCancel { get; set; }
         double SlideValueWidth { get; }
         int SlideWidth { get; set; }
         string SlideSymbols { get; set; }

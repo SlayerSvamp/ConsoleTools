@@ -6,9 +6,54 @@ using System.Threading.Tasks;
 
 namespace ConsoleTools
 {
+    public class BufferChar
+    {
+        public Splash Splash { get; set; } = new Splash();
+        public char Char { get; set; } = ' ';
+    }
+    public static class BufferWriter
+    {
+        private static int LastBufferHeight { get; set; } = 0;
+        public static List<IEnumerable<BufferChar>> ScreenBuffer { get; set; } = new List<IEnumerable<BufferChar>>();
+        public static void AddLine(string line, Splash splash = null)
+        {
+            splash = splash ?? new Splash();
+            var chars = line.Select(x =>
+                new BufferChar
+                {
+                    Char = x,
+                    Splash = splash
+                });
+            ScreenBuffer.Add(chars);
+        }
+        public static void Write()
+        {
+            Console.CursorTop = 0;
+            Console.CursorLeft = 0;
+            foreach (var bufferRow in ScreenBuffer)
+            {
+                foreach (var buffer in bufferRow)
+                    buffer.Splash.Act(() => Console.Write(buffer.Char));
+
+                while (Console.BufferWidth > Console.CursorLeft + 1)
+                    Console.Write(' ');
+
+                Console.CursorLeft = 0;
+                Console.CursorTop++;
+            }
+
+            var val = LastBufferHeight - Console.CursorTop;
+            LastBufferHeight = Console.CursorTop;
+            for (int i = 0; i <= val; i++)
+            {
+                Console.WriteLine(new string(' ', Console.BufferWidth - 1));
+            }
+
+        }
+    }
+
     abstract public class InputToolBase<T> : IInputTool<T>
     {
-        protected IEnumerable<string> ContentParts { get; set; }
         protected int ContentCursorTop { get; set; }
         public int Indent { get; set; } = 3;
         public int MaxWriteLength
@@ -60,42 +105,51 @@ namespace ConsoleTools
                 }
             }
         }
-        protected int PrintSegment(Splash colors, string value)
+        protected void PrintSegment(Splash colors, string value)
         {
-            if (value.Length == 0) return 0;
             var lines = GetPrintLines(value).ToList();
+
             foreach (var line in lines)
             {
-                Console.CursorLeft = Indent;
-                colors.Write(line);
-                Console.CursorTop++;
+                var chars = $"{new string(' ', Indent)}{line}"
+                            .Select(x => new BufferChar()
+                            {
+                                Splash = colors,
+                                Char = x
+                            });
+                BufferWriter.ScreenBuffer.Add(chars);
             }
-            Console.CursorTop++;
-            return lines.Count;
         }
         protected void PrintHead()
         {
-            Console.CursorTop = 1;
+            BufferWriter.AddLine("");
             PrintSegment(HeaderSplash, Header);
+            BufferWriter.AddLine("");
         }
         protected void PrintErrorMessage()
         {
-            if (HasError) PrintSegment(ErrorMessageSplash, ErrorMessage);
+            if (HasError)
+            {
+                PrintSegment(ErrorMessageSplash, ErrorMessage);
+                BufferWriter.AddLine("");
+            }
         }
         public abstract IInputTool Activate();
         protected abstract void PrintContent();
         protected void PrintFooter()
         {
+            BufferWriter.AddLine("");
             PrintSegment(FooterSplash, Footer);
         }
         protected void PrintAll()
         {
-            Console.Clear();
+            BufferWriter.ScreenBuffer.Clear();
             PrintHead();
             PrintErrorMessage();
-            ContentCursorTop = Console.CursorTop;
+            ContentCursorTop = BufferWriter.ScreenBuffer.Count;
             PrintContent();
             PrintFooter();
+            BufferWriter.Write();
         }
     }
 }

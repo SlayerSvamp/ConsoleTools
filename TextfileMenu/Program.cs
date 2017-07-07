@@ -180,9 +180,8 @@ namespace TextfileMenu
             {
                 var root = new FolderBrowserDialog() { SelectedPath = "." };
                 var exit = new EnumSelector<Confirm> { Header = "Do you want to quit?" };
-                var extensions = FlagSelector.New<Extensions>();
+                var extensions = new FlagSelector<Extensions> { AllowCancel = false };
                 var exts = Enum.GetValues(typeof(Extensions)).Cast<Extensions>();
-                extensions.AllowCancel = false;
                 Selector<object> menu;
                 do
                 {

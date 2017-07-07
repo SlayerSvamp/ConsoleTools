@@ -57,7 +57,8 @@ namespace ConsoleTools
         }
         protected override void PrintContent()
         {
-            Console.CursorTop += 3;
+            for (int i = 0; i < 3; i++)
+                BufferWriter.AddLine("");
         }
     }
     public class CustomInput<T> : TextInputBase<T>, ITextInput<T>

@@ -164,7 +164,7 @@ namespace ConsoleToolsManualTest
                 { Option.Style, GeneratePlayStyleSelector()},
                 { Option.Weapon, new EnumSelector<Weapon> { Title = "Weapon", Header = "Choose your prefered weapon" } },
                 { Option.Armour, new EnumSelector<Armour> { Title = "Armour", Header = "Choose prefered armour" } },
-                { Option.Badges, FlagSelector.New<Badges>(Title: "Simmärken", Header: "Vilka simmärken har du tagit?") }
+                { Option.Badges, new FlagSelector<Badges>{Title = "Simmärken", Header= "Vilka simmärken har du tagit?" } }
             };
         }
         static IDictionary<Color, IEnumSelector<ConsoleColor>> GenerateColorMenuItems()
@@ -172,7 +172,7 @@ namespace ConsoleToolsManualTest
             return new Dictionary<Color, IEnumSelector<ConsoleColor>>
             {
                 { Color.ConsoleFG, new EnumSelector<ConsoleColor> { Title = "Console foreground color", Header = "Choose default foreground color for the program", Value = ConsoleColor.Gray, PreviewTrigger = (x) => Console.ForegroundColor = x, CancelTrigger = (x) => Console.ForegroundColor = x } },
-                { Color.ConsoleBG, new EnumSelector<ConsoleColor> { Title = "Console background color", Header = "Choose default background color for the program", Value = ConsoleColor.Black, PreviewTrigger = (x) => Console.BackgroundColor = x, CancelTrigger = (x) => Console.BackgroundColor = x } },
+                { Color.ConsoleBG, new EnumSelector<ConsoleColor> { Title = "Console background color", Header = "Choose default background color for the program", Value = ConsoleColor.Black, PreviewTrigger = (x) => {Console.BackgroundColor = x; Console.Clear(); }, CancelTrigger = (x) => Console.BackgroundColor = x } },
                 { Color.HeaderFG, new EnumSelector<ConsoleColor> { Title = "Header foreground color", Header = "Choose header foreground color" } },
                 { Color.HeaderBG, new EnumSelector<ConsoleColor> { Title = "Header background color", Header = "Choose header background color"} },
                 { Color.SelectedFG, new EnumSelector<ConsoleColor> { Title = "Selection foreground color", Header = "Choose selected foreground color"} },
@@ -247,15 +247,15 @@ namespace ConsoleToolsManualTest
         }
         static void SetupBadgesFooter(IFlagSelector<Badges> badges)
         {
-            badges.AfterToggle = (x) => badges.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", badges.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
-            badges.AfterToggle(badges.PreviewValue);
+            badges.PostToggleTrigger = (x) => badges.Footer = $"Valda simmärken:{Environment.NewLine}{(string.Join("\n", badges.DisplayFormat(x).Split(',').Select(s => s.Trim())))}";
+            badges.PostToggleTrigger(badges.PreviewValue);
         }
         static IInputToolSelector<IInputTool> GenerateMenu()
         {
             var options = GenerateOptions();
             var menu = new InputToolSelector<IInputTool>(options.Values) { Title = "Main menu", Header = "Main menu" };
             var colorSelector = GenerateColorSelector(menu);
-            
+
             SetupBadgesFooter((IFlagSelector<Badges>)options[Option.Badges]);
 
             PromptLoad(options);

@@ -106,18 +106,23 @@ namespace ConsoleTools
         protected abstract double GetRangeDisplayPart(T value);
         protected override void PrintContent()
         {
-            Console.CursorLeft = Indent;
-            InputSplash.Write(DisplayFormat(PreviewValue));
-            Console.CursorTop += 2;
-            Console.CursorLeft = Indent;
-            Range.DrawBar(SlideWidth, SlideValueWidth, SlideSymbols, SlideSplash, SlideBackgroundSplash);
-            Console.CursorTop += 2;
-            Console.CursorLeft = Indent;
+            var indent = new string(' ', Indent);
+            var line = $"{indent}{DisplayFormat(PreviewValue)}";
+            BufferWriter.AddLine(line, InputSplash);
+            BufferWriter.AddLine("");
+            BufferWriter.AddLine("");
+
+            var buffer = indent.Select(x => new BufferChar()).ToList();
+            var rangeBuffer = Range.GetBar(SlideWidth, SlideValueWidth, SlideSymbols, SlideSplash, SlideBackgroundSplash);
+            buffer.AddRange(rangeBuffer);
+            BufferWriter.ScreenBuffer.Add(buffer);
+            BufferWriter.AddLine("");
+            BufferWriter.AddLine("");
         }
     }
     public static class Range
     {
-        public static void DrawBar(int barWidth, double valueWidth, string slideSymbols, Splash valueSplash = null, Splash backgroundSplash = null)
+        public static IEnumerable<BufferChar> GetBar(int barWidth, double valueWidth, string slideSymbols, Splash valueSplash = null, Splash backgroundSplash = null)
         {
             valueSplash = valueSplash ?? new Splash() { ForegroundColor = ConsoleColor.Yellow, BackgroundColor = ConsoleColor.DarkYellow };
             backgroundSplash = backgroundSplash ?? new Splash() { ForegroundColor = ConsoleColor.DarkGray, BackgroundColor = ConsoleColor.DarkGray };
@@ -127,7 +132,7 @@ namespace ConsoleTools
                 var index = (int)Math.Floor((valueWidth - i) * (slideSymbols.Length - 1));
                 index = Math.Min(index, slideSymbols.Length - 2);
                 var splash = (i < valueWidth) ? valueSplash : backgroundSplash;
-                splash.Write(slideSymbols[index < 0 ? 0 : index + 1].ToString());
+                yield return new BufferChar { Char = slideSymbols[index < 0 ? 0 : index + 1], Splash = splash };
             }
         }
         public static int DefaultSlideWidth { get; set; } = 50;

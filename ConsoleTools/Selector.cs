@@ -117,9 +117,8 @@ namespace ConsoleTools
                 var value = $"{(isActive ? ">" : " ")}{FormatChoice(choice)}";
                 var colors = isActive ? InputSplash : ContentSplashSelector(choice);
                 PrintSegment(colors, value);
-                Console.CursorTop--;
             }
-            Console.CursorTop++;
+            BufferWriter.AddLine("");
         }
         protected virtual void PreActivate()
         {
@@ -188,134 +187,31 @@ namespace ConsoleTools
             DisplayFormat = (value) => Regex.Replace(value.ToString(), @"([a-zåäö])([A-ZÅÄÖ])", m => $"{m.ToString()[0]} {m.ToString()[1]}".ToLower());
         }
     }
-    public abstract class FlagSelectorBase<T, U> : EnumSelector<T>, IFlagSelector<T> where T : struct, IComparable, IConvertible, IFormattable
+    public class FlagSelector<T> : EnumSelector<T>, IFlagSelector<T> where T : struct, IComparable, IConvertible, IFormattable
     {
-        public Action<T> AfterToggle { get; set; } = (t) => { };
-        public U TotalFlagValue { get; protected set; }
-        public U PreviewTotalFlagValue { get; protected set; }
-        public override T Value { get { return (T)(dynamic)TotalFlagValue; } set { TotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
-        public override T PreviewValue { get { return (T)(dynamic)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = (U)Convert.ChangeType(value, (typeof(U))); } }
-        protected FlagSelectorBase()
+        public enum CompositeFlagToggleMode { AsGroup, XorMode }
+        public Action<T> PostToggleTrigger { get; set; } = (t) => { };
+        private dynamic TotalFlagValue { get; set; } = (dynamic)Convert.ChangeType(0, typeof(T).GetEnumUnderlyingType());
+        private dynamic PreviewTotalFlagValue { get; set; } = (dynamic)Convert.ChangeType(0, typeof(T).GetEnumUnderlyingType());
+        public override T Value { get { return (T)TotalFlagValue; } set { TotalFlagValue = value; } }
+        public override T PreviewValue { get { return (T)PreviewTotalFlagValue; } set { PreviewTotalFlagValue = value; } }
+        public FlagSelector()
         {
-            KeyPressActions.Add(ConsoleKey.Spacebar, (m) => { ToggleFlag(); AfterToggle(PreviewValue); });
+            KeyPressActions.Add(ConsoleKey.Spacebar, (m) => ToggleFlag());
         }
 
-        protected bool IsSelected(T value)
-        {
-            return (PreviewValue as Enum).HasFlag(value as Enum);
-        }
         protected override string FormatChoice(T choice)
         {
-            return $"{(IsSelected(choice) ? "»" : " ")}{DisplayFormat(choice)}";
+            var c = (PreviewValue as Enum).HasFlag(choice as Enum) ? "»" : " ";
+            return $"{c}{DisplayFormat(choice)}";
         }
-        protected abstract void ToggleFlag();
-    }
-    public static class FlagSelector
-    {
-        public static IFlagSelector<T> New<T>(string Title = "", string Header = "", string ErrorMessage = "", string Footer = "") where T : struct, IComparable, IConvertible, IFormattable
+        protected void ToggleFlag()
         {
-            Type underying = Enum.GetUnderlyingType(typeof(T));
-            var typecode = Type.GetTypeCode(underying);
-            Type type = null;
-            switch (typecode)
-            {
-                case TypeCode.SByte: type = typeof(SByteFlagSelector<T>); break;
-                case TypeCode.Byte: type = typeof(ByteFlagSelector<T>); break;
-                case TypeCode.Int16: type = typeof(Int16FlagSelector<T>); break;
-                case TypeCode.UInt16: type = typeof(UInt16FlagSelector<T>); break;
-                case TypeCode.Int32: type = typeof(Int32FlagSelector<T>); break;
-                case TypeCode.UInt32: type = typeof(UInt32FlagSelector<T>); break;
-                case TypeCode.Int64: type = typeof(Int64FlagSelector<T>); break;
-                case TypeCode.UInt64: type = typeof(UInt64FlagSelector<T>); break;
-            }
-            var res = (IFlagSelector<T>)Activator.CreateInstance(type);
-            res.Title = Title;
-            res.Header = Header;
-            res.ErrorMessage = ErrorMessage;
-            res.Footer = Footer;
-            return res;
+            var typeCode = Type.GetTypeCode(typeof(T).GetEnumUnderlyingType());
+            dynamic newValue = Convert.ChangeType(PreviewTotalFlagValue, typeCode);
+            newValue ^= (dynamic)Convert.ChangeType(base.PreviewValue, typeCode);
+            PreviewTotalFlagValue = newValue;
+            PostToggleTrigger(PreviewValue);
         }
     }
-    #region FlagSelectorAlternatives
-    public class SByteFlagSelector<T> : FlagSelectorBase<T, sbyte> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            sbyte val = (sbyte)Convert.ChangeType(Options[PreviewIndex], typeof(sbyte));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= (sbyte)~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    public class ByteFlagSelector<T> : FlagSelectorBase<T, byte> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            byte val = (byte)Convert.ChangeType(Options[PreviewIndex], typeof(byte));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= (byte)~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    public class Int16FlagSelector<T> : FlagSelectorBase<T, short> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            short val = (short)Convert.ChangeType(Options[PreviewIndex], typeof(short));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= (short)~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    public class UInt16FlagSelector<T> : FlagSelectorBase<T, ushort> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            ushort val = (ushort)Convert.ChangeType(Options[PreviewIndex], typeof(ushort));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= (ushort)~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    public class Int32FlagSelector<T> : FlagSelectorBase<T, int> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            int val = (int)Convert.ChangeType(Options[PreviewIndex], typeof(int));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= ~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    public class UInt32FlagSelector<T> : FlagSelectorBase<T, uint> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            uint val = (uint)Convert.ChangeType(Options[PreviewIndex], typeof(uint));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= ~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    public class Int64FlagSelector<T> : FlagSelectorBase<T, long> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            long val = (long)Convert.ChangeType(Options[PreviewIndex], typeof(long));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= ~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    public class UInt64FlagSelector<T> : FlagSelectorBase<T, ulong> where T : struct, IComparable, IConvertible, IFormattable
-    {
-        protected override void ToggleFlag()
-        {
-            ulong val = (ulong)Convert.ChangeType(Options[PreviewIndex], typeof(ulong));
-            if (IsSelected(Options[PreviewIndex]))
-                PreviewTotalFlagValue &= ~val;
-            else PreviewTotalFlagValue |= val;
-        }
-    }
-    #endregion
 }

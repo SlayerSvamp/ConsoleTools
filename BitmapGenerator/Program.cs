@@ -52,11 +52,11 @@ namespace BitmapGenerator
         }
         private void CreateImage(int _width, int _height)
         {
-            Console.Clear();
-            Console.CursorTop = 1;
-            Console.CursorLeft = 3;
-            Console.WriteLine($"Creating Image ({Width}x{Height})");
-            Console.CursorTop++;
+            BufferWriter.ScreenBuffer.Clear();
+            BufferWriter.AddLine("");
+            BufferWriter.AddLine($"   Creating Image ({Width}x{Height})");
+            BufferWriter.AddLine("");
+
             Graphics.Clear(SecondaryColor);
 
             var width = (int)(_width * Zoom);
@@ -84,9 +84,12 @@ namespace BitmapGenerator
                     else ColorizePixel(col - startCol, row - startRow, LimitAlpha);
                 }
                 if ((row - startRow) % (Height / 200) == 0)
-                {
-                    Console.CursorLeft = 3;
-                    Range.DrawBar(50, 50 * ((0.0 + row - startRow) / _height), " .-x#");
+                {                    
+                    var buffer = new string(' ', 3).Select(x => new BufferChar()).ToList();
+                    buffer.AddRange(Range.GetBar(50, 50 * ((0.0 + row - startRow) / _height), " .-x#"));
+                    BufferWriter.ScreenBuffer.Add(buffer);
+                    BufferWriter.Write();
+                    BufferWriter.ScreenBuffer.RemoveAt(BufferWriter.ScreenBuffer.Count - 1);
                 }
 
             }
@@ -153,15 +156,19 @@ namespace BitmapGenerator
             var imageSettings = new InputToolSelector<IInputTool>(options);
             var cancel = new Selector<bool>(new bool[] { false, true }) { Header = "Do you want to exit without saving?", DisplayFormat = x => x ? "Yes" : "No" };
             imageSettings.CancelTrigger = x => imageSettings.Cancel = cancel.Activate().IfType<Selector<bool>>(y => { }).Value;
-            var bgsplash = new Splash() { ForegroundColor = ConsoleColor.DarkGray, BackgroundColor = ConsoleColor.Gray };
+            imageSettings.InputSplash.ForegroundColor = ConsoleColor.Cyan;
             imageSettings.ActUponInputToolTree(tool => tool.IfType<IRange<int>>(x =>
             {
                 x.IncrementByModifiers[ConsoleModifiers.Control] = 5;
                 x.IncrementByModifiers[ConsoleModifiers.Shift | ConsoleModifiers.Control] = 20;
-                x.SlideBackgroundSplash = bgsplash;
+                x.SlideBackgroundSplash.BackgroundColor = x.SlideSplash.BackgroundColor;
+                x.SlideBackgroundSplash.ForegroundColor = x.SlideSplash.BackgroundColor;
                 x.Header = x.Title;
+                x.SlideSymbols = " ░▒▓█";
+                x.PreviewTrigger = (y) => { while (Console.KeyAvailable) Console.ReadKey(true); };
+                
             }));
-            imageSettings.InputSplash.ForegroundColor = ConsoleColor.Cyan;
+            imageSettings.PreviewTrigger = (x) => { while (Console.KeyAvailable) Console.ReadKey(true); };
             name.PostActivateTrigger = x => imageSettings.Cancel = true;
             name.FooterSplash.ForegroundColor = ConsoleColor.DarkGray;
             var format = new EnumSelector<ImageFormat> { Header = "Choose image format", InputSplash = imageSettings.InputSplash };
